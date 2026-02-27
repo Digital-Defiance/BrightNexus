@@ -1,3 +1,73 @@
+## TOTP 2FA API Extensions
+
+### Enable TOTP for a Key
+
+**Command:** `ENABLE_TOTP`
+
+**Request:**
+```
+{
+   "cmd": "ENABLE_TOTP",
+   "keyId": "ecies-secp256k1", // or "secure-enclave-p256"
+   "account": "user@example.com",
+   "issuer": "EnclaveBridge"
+}
+```
+
+**Response:**
+```
+{
+   "provisioningURI": "otpauth://totp/EnclaveBridge:user@example.com?..."
+}
+```
+
+### Export Key with TOTP
+
+**Command:** `EXPORT_KEY`
+
+**Request:**
+```
+{
+   "cmd": "EXPORT_KEY",
+   "keyId": "ecies-secp256k1", // or "secure-enclave-p256"
+   "totpCode": "123456" // Only required if TOTP is enabled for this key
+}
+```
+
+**Response:**
+```
+{
+   "publicKey": "...base64..."
+}
+```
+
+If TOTP is required and invalid or missing:
+```
+{
+   "error": "TOTP code required or invalid for this key"
+}
+```
+
+### List Keys (with TOTP status)
+
+**Command:** `LIST_KEYS`
+
+**Response:**
+```
+{
+   "keys": [
+      {
+         "id": "ecies-secp256k1",
+         "type": "secp256k1",
+         "publicKeyFingerprint": "...",
+         "isSecureEnclave": false,
+         "totpEnabled": true,
+         "totpProvisioningURI": "otpauth://totp/..."
+      },
+      ...
+   ]
+}
+```
 ## node-ecies-lib: Unique Implementation Details
 
 - **Strict secp256k1 Key Handling:**

@@ -27,6 +27,8 @@ struct KeyInfo: Identifiable {
     let createdAt: Date
     let publicKeyFingerprint: String
     let isSecureEnclave: Bool
+    let totpSecret: String? // Optional TOTP secret
+    let totpProvisioningURI: String? // Optional provisioning URI
     
     enum KeyType: String {
         case secp256k1 = "secp256k1"
@@ -37,6 +39,33 @@ struct KeyInfo: Identifiable {
 /// Central app state - published to SwiftUI views
 @MainActor
 class AppState: ObservableObject {
+            // Validate TOTP code for a key (returns true if valid or not required)
+            func validateTOTP(forKeyId keyId: String, code: String?) -> Bool {
+                let key = keys.first(where: { $0.id == keyId })
+                guard let totpSecret = key?.totpSecret else {
+                    return true // No TOTP required
+                }
+                guard let code = code else { return false }
+                return TOTPManager.validateTOTP(secret: totpSecret, code: code)
+            }
+        // Enable TOTP for a key, returns provisioning URI
+        func enableTOTP(forKeyId keyId: String, account: String, issuer: String) -> String? {
+            let secret = TOTPManager.generateSecret()
+            let uri = TOTPManager.provisioningURI(secret: secret, account: account, issuer: issuer)
+            // Save to config file
+            let totpConfigPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".enclave/totp-config.json").path
+            var totpConfig: [String: [String: String]] = [:]
+            if let data = try? Data(contentsOf: URL(fileURLWithPath: totpConfigPath)),
+               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: [String: String]] {
+                totpConfig = dict
+            }
+            totpConfig[keyId] = ["secret": secret, "uri": uri]
+            if let data = try? JSONSerialization.data(withJSONObject: totpConfig, options: .prettyPrinted) {
+                try? data.write(to: URL(fileURLWithPath: totpConfigPath))
+            }
+            refreshKeys()
+            return uri
+        }
     static let shared = AppState()
     
     @Published var connections: [ClientConnection] = []
@@ -88,33 +117,47 @@ class AppState: ObservableObject {
     
     func loadKeys() {
         var loadedKeys: [KeyInfo] = []
-        
+
+        // Example: Load TOTP config from disk (replace with real persistence)
+        let totpConfigPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".enclave/totp-config.json").path
+        var totpConfig: [String: [String: String]] = [:]
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: totpConfigPath)),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: [String: String]] {
+            totpConfig = dict
+        }
+
         // Load secp256k1 ECIES key info
         if let pubKeyData = try? ECIESKeyManager.getOrCreateSecp256k1PublicKey() {
             let fingerprint = computeFingerprint(pubKeyData)
+            let totp = totpConfig["ecies-secp256k1"]
             let keyInfo = KeyInfo(
                 id: "ecies-secp256k1",
                 type: .secp256k1,
                 createdAt: getKeyCreationDate(for: "ecies") ?? Date(),
                 publicKeyFingerprint: fingerprint,
-                isSecureEnclave: false
+                isSecureEnclave: false,
+                totpSecret: totp?["secret"],
+                totpProvisioningURI: totp?["uri"]
             )
             loadedKeys.append(keyInfo)
         }
-        
+
         // Load Secure Enclave key info
         if let pubKeyData = try? SecureEnclaveKeyManager.getPublicKeyData() {
             let fingerprint = computeFingerprint(pubKeyData)
+            let totp = totpConfig["secure-enclave-p256"]
             let keyInfo = KeyInfo(
                 id: "secure-enclave-p256",
                 type: .secureEnclave,
                 createdAt: getKeyCreationDate(for: "enclave") ?? Date(),
                 publicKeyFingerprint: fingerprint,
-                isSecureEnclave: true
+                isSecureEnclave: true,
+                totpSecret: totp?["secret"],
+                totpProvisioningURI: totp?["uri"]
             )
             loadedKeys.append(keyInfo)
         }
-        
+
         keys = loadedKeys
     }
     

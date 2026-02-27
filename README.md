@@ -34,6 +34,8 @@
 - 📊 **Real-time Monitoring** - View active connections, key status, and statistics
 - 🛡️ **Zero Trust** - All communication encrypted end-to-end with ECIES
 
+- 🔑 **Optional TOTP 2FA** - Per-key two-factor authentication using TOTP (RFC 6238, compatible with Google Authenticator, Authy, etc.)
+
 <img width="1440" height="900" alt="Screenshot 2026-01-25 at 5 26 47 PM" src="https://github.com/user-attachments/assets/3344b75e-4dac-471f-b731-746f3c0cb4e1" />
 
 ## Requirements
@@ -146,6 +148,31 @@ main().catch(console.error);
 ```
 
 ## API Reference
+## TOTP 2FA Support
+
+Enclave Bridge now supports optional per-key TOTP two-factor authentication:
+
+- Enable TOTP for any key via API (returns provisioning URI for authenticator apps)
+- Require TOTP code for key export or sensitive actions (if enabled)
+- Fully documented in [ENCLAVE_BRIDGE_SPEC.md](ENCLAVE_BRIDGE_SPEC.md)
+
+### Example Usage
+
+1. **Enable TOTP for a key:**
+  - Send `ENABLE_TOTP` command with keyId, account, and issuer
+  - Receive provisioning URI (scan with Google Authenticator, Authy, etc.)
+2. **Export key with TOTP:**
+  - Send `EXPORT_KEY` with keyId and TOTP code
+  - If TOTP is required and invalid/missing, error is returned
+
+See [ENCLAVE_BRIDGE_SPEC.md](ENCLAVE_BRIDGE_SPEC.md) for full request/response formats.
+
+## End-to-End Testing
+
+E2E tests for TOTP 2FA and all bridge features are included in the enclave-bridge-client repo:
+
+- Run: `npx tsx tests/e2e/enclave-bridge.e2e.ts` from the enclave-bridge-client directory
+- Tests cover TOTP enable, provisioning URI, key export with valid/invalid TOTP, and error handling
 
 ### Protocol Commands
 

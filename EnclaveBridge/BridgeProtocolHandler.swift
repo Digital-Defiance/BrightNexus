@@ -40,6 +40,45 @@ class BridgeProtocolHandler {
             return BridgeProtocolHandler.errorResponse("Invalid request format")
         }
         switch cmd {
+        case "ENABLE_TOTP":
+            guard let keyId = json["keyId"] as? String,
+                  let account = json["account"] as? String,
+                  let issuer = json["issuer"] as? String else {
+                return BridgeProtocolHandler.errorResponse("Missing keyId, account, or issuer")
+            }
+            if let uri = AppState.shared.enableTOTP(forKeyId: keyId, account: account, issuer: issuer) {
+                return BridgeProtocolHandler.jsonResponse(["provisioningURI": uri])
+            } else {
+                return BridgeProtocolHandler.errorResponse("Failed to enable TOTP for key")
+            }
+        case "EXPORT_KEY":
+            guard let keyId = json["keyId"] as? String else {
+                return BridgeProtocolHandler.errorResponse("Missing keyId")
+            }
+            let totpCode = json["totpCode"] as? String
+            // Validate TOTP if required
+            let valid = AppState.shared.validateTOTP(forKeyId: keyId, code: totpCode)
+            if !valid {
+                return BridgeProtocolHandler.errorResponse("TOTP code required or invalid for this key")
+            }
+            // Export key material (example: public key only)
+            if keyId == "ecies-secp256k1" {
+                do {
+                    let pubKey = try ECIESKeyManager.getOrCreateSecp256k1PublicKey()
+                    return BridgeProtocolHandler.jsonResponse(["publicKey": pubKey.base64EncodedString()])
+                } catch {
+                    return BridgeProtocolHandler.errorResponse("Failed to export ECIES public key: \(error.localizedDescription)")
+                }
+            } else if keyId == "secure-enclave-p256" {
+                do {
+                    let pubKey = try SecureEnclaveKeyManager.getPublicKeyData()
+                    return BridgeProtocolHandler.jsonResponse(["publicKey": pubKey.base64EncodedString()])
+                } catch {
+                    return BridgeProtocolHandler.errorResponse("Failed to export Secure Enclave public key: \(error.localizedDescription)")
+                }
+            } else {
+                return BridgeProtocolHandler.errorResponse("Unknown keyId")
+            }
         case "HEARTBEAT":
             // Simple heartbeat to check if bridge is alive
             let timestamp = ISO8601DateFormatter().string(from: Date())
@@ -101,21 +140,18 @@ class BridgeProtocolHandler {
                 return BridgeProtocolHandler.errorResponse("Missing or invalid publicKey")
             }
         case "LIST_KEYS":
-            // Report available key identifiers; currently a single ECIES key and one Secure Enclave key
-            do {
-                let eciesPub = try ECIESKeyManager.getOrCreateSecp256k1PublicKey()
-                let enclavePub = try? SecureEnclaveKeyManager.getPublicKeyData()
-                let dict: [String: Any] = [
-                    "ecies": [[
-                        "id": "ecies-default",
-                        "publicKey": eciesPub.base64EncodedString()
-                    ]],
-                    "enclave": enclavePub != nil ? [["id": "enclave-default", "publicKey": enclavePub!.base64EncodedString()]] : []
+            // Report available key identifiers and TOTP status
+            let keys = AppState.shared.keys.map { key in
+                [
+                    "id": key.id,
+                    "type": key.type.rawValue,
+                    "publicKeyFingerprint": key.publicKeyFingerprint,
+                    "isSecureEnclave": key.isSecureEnclave,
+                    "totpEnabled": key.totpSecret != nil,
+                    "totpProvisioningURI": key.totpProvisioningURI ?? ""
                 ]
-                return BridgeProtocolHandler.jsonResponse(dict)
-            } catch {
-                return BridgeProtocolHandler.errorResponse("Failed to list keys: \(error.localizedDescription)")
             }
+            return BridgeProtocolHandler.jsonResponse(["keys": keys])
         case "ENCLAVE_SIGN":
             guard let dataStr = json["data"] as? String, let dataToSign = Data(base64Encoded: dataStr) else {
                 return BridgeProtocolHandler.errorResponse("Missing or invalid data to sign")
