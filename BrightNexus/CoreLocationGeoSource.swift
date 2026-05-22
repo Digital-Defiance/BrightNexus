@@ -50,6 +50,14 @@ final class CoreLocationGeoSource: NSObject, GeoSourceProtocol, CLLocationManage
     // MARK: - GeoSourceProtocol
 
     func currentFix() -> GeoFix? {
+        // Tickle: if we're authorized but haven't kicked CoreLocation
+        // yet (e.g. caller hit LINK_GEO_GET without doing a refresh
+        // first), start updates lazily so we're warming up while we
+        // return the current (possibly nil) value. The caller will get
+        // nil this time but a subsequent call will see the fix.
+        if isAuthorized(currentAuthorization()) {
+            startUpdatesIfNeeded()
+        }
         return latestFix
     }
 
@@ -103,6 +111,14 @@ final class CoreLocationGeoSource: NSObject, GeoSourceProtocol, CLLocationManage
     func status() -> GeoSourceStatus {
         let auth = currentAuthorization()
         let kind = "CoreLocationGeoSource (\(authString(auth)))"
+        // Tickle: same lazy-startup as currentFix() so callers who
+        // probe status before triggering anything else still wake the
+        // engine. status() never blocks; if there's no fix yet we
+        // simply report alive=false and the next call will see the
+        // engine running.
+        if isAuthorized(auth) {
+            startUpdatesIfNeeded()
+        }
         guard let fix = latestFix else {
             return GeoSourceStatus(
                 kind: kind,
