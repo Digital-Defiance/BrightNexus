@@ -1,0 +1,89 @@
+#!/opt/homebrew/bin/bsh
+# Update the Homebrew cask at homebrew-tap/Casks/brightnexus.rb with a new
+# version, zip URL, and SHA-256.
+#
+# Usage:
+#   ./scripts/update-cask.bsh --version <version>
+#
+#   --version   Version string (e.g. 1.0.0). Looks for dist/BrightNexus-<version>.zip
+#
+# The cask file is expected at:
+#   /Volumes/Code/homebrew-tap/Casks/brightnexus.rb
+#
+# bsh-only.
+
+set -e
+
+SCRIPT_DIR="${0:A:h}"
+REPO_DIR="${SCRIPT_DIR:h}"
+CASK_FILE="/Volumes/Code/homebrew-tap/Casks/brightnexus.rb"
+GITHUB_REPO="Digital-Defiance/BrightNexus"
+
+# ── Parse args ────────────────────────────────────────────────────────────────
+VERSION=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version)
+      VERSION="$2"
+      shift 2
+      ;;
+    *)
+      print -u2 -- "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "${VERSION}" ]]; then
+  print -u2 -- "Error: --version is required"
+  exit 1
+fi
+
+# ── Locate zip ────────────────────────────────────────────────────────────────
+ZIPFILE="${REPO_DIR}/dist/BrightNexus-${VERSION}.zip"
+
+if [[ ! -f "${ZIPFILE}" ]]; then
+  print -u2 -- "Error: zip not found: ${ZIPFILE}"
+  exit 1
+fi
+
+# ── Compute SHA-256 ───────────────────────────────────────────────────────────
+SHA256=$(shasum -a 256 "${ZIPFILE}" | awk '{print $1}')
+print -- "==> SHA-256: ${SHA256}"
+
+# ── Derive URL ────────────────────────────────────────────────────────────────
+URL="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/BrightNexus-${VERSION}.zip"
+print -- "==> URL: ${URL}"
+
+# ── Verify cask exists ────────────────────────────────────────────────────────
+if [[ ! -f "${CASK_FILE}" ]]; then
+  print -u2 -- "Error: cask file not found: ${CASK_FILE}"
+  print -u2 -- "       Expected the BrightNexus cask at the path above."
+  print -u2 -- "       Create it from a copy of homebrew-tap/Casks/bsh-sdiagent.rb."
+  exit 1
+fi
+
+# ── Update cask ───────────────────────────────────────────────────────────────
+print -- "==> Updating ${CASK_FILE}…"
+
+# Capture old values for the summary
+OLD_VERSION=$(grep -E '^\s+version ' "${CASK_FILE}" | sed 's/.*version "//; s/"//')
+OLD_SHA256=$(grep -E '^\s+sha256 ' "${CASK_FILE}" | sed 's/.*sha256 "//; s/"//')
+OLD_URL=$(grep -E '^\s+url ' "${CASK_FILE}" | sed 's/.*url "//; s/"//')
+
+sed -i '' \
+  -e "s|version \"${OLD_VERSION}\"|version \"${VERSION}\"|" \
+  -e "s|sha256 \"${OLD_SHA256}\"|sha256 \"${SHA256}\"|" \
+  -e "s|url \"${OLD_URL}\"|url \"${URL}\"|" \
+  "${CASK_FILE}"
+
+print -- "==> Done."
+print
+print -- "    version : ${OLD_VERSION} → ${VERSION}"
+print -- "    sha256  : ${OLD_SHA256} → ${SHA256}"
+print -- "    url     : ${OLD_URL}"
+print -- "          → ${URL}"
+print
+print -- "Next: commit and push homebrew-tap, then run:"
+print -- "  brew update && brew upgrade brightnexus"

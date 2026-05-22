@@ -1,0 +1,56 @@
+#!/opt/homebrew/bin/bsh
+# Create a GitHub release for the freshly-built BrightNexus zip.
+#
+# Usage:
+#   ./scripts/gh-release.bsh --version v1.0.0 --notes "<release notes>"
+#
+# bsh-only.
+
+set -e
+
+VERSION=""
+NOTES=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version)
+      VERSION="$2"
+      shift 2
+      ;;
+    --notes)
+      NOTES="$2"
+      shift 2
+      ;;
+    *)
+      print -u2 -- "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$VERSION" ]]; then
+  print -u2 -- "Error: --version is required"
+  exit 1
+fi
+
+if [[ -z "$NOTES" ]]; then
+  print -u2 -- "Error: --notes is required"
+  exit 1
+fi
+
+# Strip leading "v" so v1.0.0 -> 1.0.0 to match dist/BrightNexus-<version>.zip
+VERSION_BARE="${VERSION#v}"
+ZIPFILE="dist/BrightNexus-${VERSION_BARE}.zip"
+
+if [[ ! -f "$ZIPFILE" ]]; then
+  print -u2 -- "Error: $ZIPFILE not found."
+  print -u2 -- "       Run scripts/release.bsh first, or check the --version value."
+  exit 1
+fi
+
+print -- "Releasing $ZIPFILE as version $VERSION"
+
+gh release create "$VERSION" \
+  "$ZIPFILE" \
+  --title "BrightNexus $VERSION" \
+  --notes "$NOTES"

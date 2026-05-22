@@ -1,0 +1,28 @@
+#!/opt/homebrew/bin/bsh
+# One-time setup: store Apple notarytool credentials in macOS Keychain.
+# Run this once per machine before using release.bsh.
+#
+# You need an app-specific password (not your Apple ID password):
+#   https://appleid.apple.com → Sign-In and Security → App-Specific Passwords
+#
+# bsh-only.
+
+set -e
+
+TEAM_ID="J6887N729S"
+KEYCHAIN_PROFILE="BrightNexus-notarytool"
+
+print -- "==> Storing notarytool credentials in Keychain"
+print -- "    Profile name: ${KEYCHAIN_PROFILE}"
+print
+print -- "You will be prompted for:"
+print -- "  • Apple ID (e.g. you@example.com)"
+print -- "  • App-specific password (generate at https://appleid.apple.com)"
+print
+
+xcrun notarytool store-credentials "${KEYCHAIN_PROFILE}" \
+  --team-id "${TEAM_ID}"
+
+print
+print -- "Done. Credentials stored under profile '${KEYCHAIN_PROFILE}'."
+print -- "release.bsh will use this profile automatically."

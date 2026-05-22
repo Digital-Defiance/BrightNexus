@@ -1,0 +1,144 @@
+#!/opt/homebrew/bin/bsh
+# Build, sign, notarize, staple, and package BrightNexus for distribution.
+#
+# Prerequisites:
+#   • Xcode + command-line tools installed
+#   • Developer ID Application certificate in Keychain
+#   • Notarytool credentials stored: run scripts/setup-notarytool.bsh once first
+#   • Optional: brew install create-dmg  (for .dmg output)
+#
+# Usage:
+#   ./scripts/release.bsh [version]
+#
+#   version  — optional; defaults to MARKETING_VERSION from the Xcode project
+#
+# Output (in ./dist/):
+#   BrightNexus-<version>.zip       — stapled, ready for direct download
+#   BrightNexus-<version>.dmg       — if create-dmg is available
+#
+# bsh-only.
+
+set -e
+setopt pipe_fail 2>/dev/null || true
+
+# Resolve script dir without bash-isms. bsh sets $0 to the script path.
+SCRIPT_DIR="${0:A:h}"
+REPO_DIR="${SCRIPT_DIR:h}"
+PROJECT="${REPO_DIR}/BrightNexus.xcodeproj"
+SCHEME="BrightNexus"
+EXPORT_OPTIONS="${REPO_DIR}/ExportOptions.plist"
+KEYCHAIN_PROFILE="BrightNexus-notarytool"
+TEAM_ID="J6887N729S"
+BUNDLE_ID="org.digitaldefiance.brightchain.BrightNexus"
+DIST_DIR="${REPO_DIR}/dist"
+WORK_DIR="${REPO_DIR}/.build"
+
+# ── Version ───────────────────────────────────────────────────────────────────
+if [[ $# -ge 1 ]]; then
+  VERSION="$1"
+else
+  VERSION=$(grep -m1 'MARKETING_VERSION' "${PROJECT}/project.pbxproj" \
+    | sed 's/.*= //; s/;//; s/ //')
+fi
+print -- "==> Building BrightNexus ${VERSION}"
+
+# ── Prepare directories ───────────────────────────────────────────────────────
+rm -rf "${WORK_DIR}"
+mkdir -p "${WORK_DIR}/archive" "${DIST_DIR}"
+
+ARCHIVE="${WORK_DIR}/archive/BrightNexus.xcarchive"
+EXPORT_DIR="${WORK_DIR}/export"
+
+# ── Archive ───────────────────────────────────────────────────────────────────
+print -- "==> Archiving (Release)…"
+xcrun xcodebuild archive \
+  -project "${PROJECT}" \
+  -scheme "${SCHEME}" \
+  -configuration Release \
+  -archivePath "${ARCHIVE}" \
+  CODE_SIGN_STYLE=Manual \
+  CODE_SIGN_IDENTITY="Developer ID Application" \
+  DEVELOPMENT_TEAM="${TEAM_ID}" \
+  ENABLE_HARDENED_RUNTIME=YES \
+  -quiet
+print -- "    Archive: ${ARCHIVE}"
+
+# ── Export (Developer ID signed) ─────────────────────────────────────────────
+print -- "==> Exporting…"
+xcrun xcodebuild -exportArchive \
+  -archivePath "${ARCHIVE}" \
+  -exportPath "${EXPORT_DIR}" \
+  -exportOptionsPlist "${EXPORT_OPTIONS}" \
+  -quiet
+APP="${EXPORT_DIR}/BrightNexus.app"
+print -- "    Exported: ${APP}"
+
+# ── Notarize ──────────────────────────────────────────────────────────────────
+print -- "==> Zipping for notarization…"
+NOTARIZE_ZIP="${WORK_DIR}/BrightNexus-notarize.zip"
+ditto -c -k --keepParent "${APP}" "${NOTARIZE_ZIP}"
+
+print -- "==> Submitting to Apple notary service (this may take a few minutes)…"
+NOTARIZE_OUT=$(xcrun notarytool submit "${NOTARIZE_ZIP}" \
+  --keychain-profile "${KEYCHAIN_PROFILE}" \
+  --wait \
+  --timeout 1800 2>&1) || true
+print -- "${NOTARIZE_OUT}"
+
+SUBMISSION_ID=$(print -- "${NOTARIZE_OUT}" | grep -E '^\s+id:' | head -1 | awk '{print $2}')
+STATUS=$(print -- "${NOTARIZE_OUT}" | grep -E '^\s+status:' | awk '{print $2}')
+
+if [[ "${STATUS}" != "Accepted" ]]; then
+  print
+  print -- "==> Notarization FAILED (status: '${STATUS}'). Fetching rejection log…"
+  [[ -n "${SUBMISSION_ID}" ]] && \
+    xcrun notarytool log "${SUBMISSION_ID}" --keychain-profile "${KEYCHAIN_PROFILE}"
+  exit 1
+fi
+print -- "    Notarization accepted."
+
+# ── Staple ────────────────────────────────────────────────────────────────────
+print -- "==> Stapling ticket to app bundle…"
+xcrun stapler staple "${APP}"
+
+# ── Verify ────────────────────────────────────────────────────────────────────
+print -- "==> Verifying Gatekeeper…"
+spctl --assess --type exec --verbose "${APP}" 2>&1
+
+# ── Package: ZIP ─────────────────────────────────────────────────────────────
+DIST_ZIP="${DIST_DIR}/BrightNexus-${VERSION}.zip"
+print -- "==> Creating ${DIST_ZIP}…"
+ditto -c -k --keepParent "${APP}" "${DIST_ZIP}"
+print -- "    SHA-256: $(shasum -a 256 "${DIST_ZIP}" | awk '{print $1}')"
+
+# ── Package: DMG (optional) ──────────────────────────────────────────────────
+if command -v create-dmg &>/dev/null; then
+  DIST_DMG="${DIST_DIR}/BrightNexus-${VERSION}.dmg"
+  print -- "==> Creating ${DIST_DMG}…"
+  create-dmg \
+    --volname "BrightNexus ${VERSION}" \
+    --window-pos 200 120 \
+    --window-size 540 380 \
+    --icon-size 128 \
+    --icon "BrightNexus.app" 135 190 \
+    --hide-extension "BrightNexus.app" \
+    --app-drop-link 405 190 \
+    "${DIST_DMG}" \
+    "${APP}"
+  print -- "    SHA-256: $(shasum -a 256 "${DIST_DMG}" | awk '{print $1}')"
+else
+  print -- "    (Skipping .dmg — install create-dmg: brew install create-dmg)"
+fi
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+print
+print -- "==> Done. Distribution files in ${DIST_DIR}/"
+ls -lh "${DIST_DIR}"/BrightNexus-"${VERSION}".*
+print
+print -- "Next steps:"
+print -- "  1. Create a GitHub release tagged v${VERSION}:"
+print -- "       ./scripts/gh-release.bsh --version v${VERSION} --notes \"<release notes>\""
+print -- "  2. Update the Homebrew cask:"
+print -- "       ./scripts/update-cask.bsh --version ${VERSION}"
+print -- "  3. Commit and push homebrew-tap, then verify:"
+print -- "       brew update && brew upgrade brightnexus"
