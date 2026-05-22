@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate app icon for Enclave Bridge"""
+"""Generate app icon for BrightNexus"""
 import subprocess
 import os
 import json

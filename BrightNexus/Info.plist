@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>ITSEncryptionExportComplianceReason</key>
+	<string>The app uses standard encryption algorithms (secp256k1 ECIES with AES-256-GCM and HKDF-SHA256) that are accepted by international standards bodies (IETF, IEEE). These algorithms are implemented using Apple's standard CryptoKit framework and do not require export compliance documentation.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>BrightNexus mediates location access for command-line tools that ask for it through the BrightLink protocol. Each requesting tool is named in a modal prompt; you grant or deny access per-tool. No location data leaves this device.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>BrightNexus mediates location access for command-line tools that ask for it through the BrightLink protocol. Each requesting tool is named in a modal prompt; you grant or deny access per-tool. No location data leaves this device.</string>
+</dict>
+</plist>

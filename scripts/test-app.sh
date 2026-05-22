@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run tests for the Enclave Bridge macOS application
+# Run tests for the BrightNexus macOS application
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,8 +12,8 @@ cd "$PROJECT_ROOT"
 run_unit_tests() {
     echo "🧪 Running Swift Unit Tests..."
     xcodebuild test \
-        -project Enclave.xcodeproj \
-        -scheme Enclave \
+        -project BrightNexus.xcodeproj \
+        -scheme BrightNexus \
         -destination 'platform=macOS' \
         -testPlan EnclaveTests \
         -derivedDataPath ./build \
@@ -23,8 +23,8 @@ run_unit_tests() {
 run_ui_tests() {
     echo "🖥️  Running Swift UI Tests..."
     xcodebuild test \
-        -project Enclave.xcodeproj \
-        -scheme Enclave \
+        -project BrightNexus.xcodeproj \
+        -scheme BrightNexus \
         -destination 'platform=macOS' \
         -testPlan EnclaveUITests \
         -derivedDataPath ./build \

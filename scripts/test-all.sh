@@ -1,10 +1,10 @@
 #!/bin/bash
-# Run all tests for Enclave Bridge
+# Run all tests for BrightNexus
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🧪 Running all Enclave Bridge tests..."
+echo "🧪 Running all BrightNexus tests..."
 echo ""
 
 # Run Swift tests
