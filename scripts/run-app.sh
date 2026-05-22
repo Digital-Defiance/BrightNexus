@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build and run the Enclave Bridge macOS application
+# Build and run the BrightNexus macOS application
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,7 +12,7 @@ if [ ! -d "$APP_PATH" ] || [ "$1" = "--rebuild" ]; then
 fi
 
 echo ""
-echo "🚀 Launching Enclave Bridge..."
+echo "🚀 Launching BrightNexus..."
 
 # Kill existing instance if running
 pkill -f "Enclave.app" 2>/dev/null || true
@@ -21,5 +21,5 @@ sleep 1
 # Launch the app
 open "$APP_PATH"
 
-echo "✅ Enclave Bridge is running!"
+echo "✅ BrightNexus is running!"
 echo "   Socket path will appear in the app's sidebar"

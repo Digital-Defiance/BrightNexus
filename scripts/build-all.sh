@@ -1,10 +1,10 @@
 #!/bin/bash
-# Build all components of Enclave Bridge
+# Build all components of BrightNexus
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🚀 Building all Enclave Bridge components..."
+echo "🚀 Building all BrightNexus components..."
 echo ""
 
 # Build macOS app

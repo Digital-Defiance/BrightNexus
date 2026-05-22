@@ -28,7 +28,7 @@ run_integration_tests() {
 
 run_e2e_tests() {
     echo "🌐 Running End-to-End Tests..."
-    echo "   ⚠️  Note: Requires Enclave Bridge app to be running"
+    echo "   ⚠️  Note: Requires BrightNexus app to be running"
     npm run test:e2e
 }
 

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Build the Enclave Bridge macOS application
+# Build the BrightNexus macOS application
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-echo "🔨 Building Enclave Bridge macOS App..."
-echo "   Project: $PROJECT_ROOT/Enclave.xcodeproj"
+echo "🔨 Building BrightNexus macOS App..."
+echo "   Project: $PROJECT_ROOT/BrightNexus.xcodeproj"
 
 cd "$PROJECT_ROOT"
 
@@ -15,8 +15,8 @@ cd "$PROJECT_ROOT"
 
 # Build Release configuration
 xcodebuild \
-    -project Enclave.xcodeproj \
-    -scheme Enclave \
+    -project BrightNexus.xcodeproj \
+    -scheme BrightNexus \
     -configuration Release \
     -derivedDataPath ./build \
     ONLY_ACTIVE_ARCH=NO \

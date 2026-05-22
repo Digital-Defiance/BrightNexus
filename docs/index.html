@@ -1,0 +1,1466 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-HQPYXSW0GB"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-HQPYXSW0GB");
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="BrightNexus — a macOS status-bar app that bridges Node.js and the BrightChain stack to Apple's Secure Enclave, and acts as the SDI agent for the bsh shell."
+    />
+    <title>BrightNexus — Secure Enclave bridge + SDI agent</title>
+    <style>
+      .feature-card.span-double {
+        grid-column: 1 / 3;
+      }
+      .feature-icon {
+        display: inline-flex;
+      }
+      .feature-heading {
+        display: inline-flex;
+      }
+      .feature-icon img {
+        height: 24px;
+        display: inline-block;
+      }
+      .feature-icon span.feature-emoji {
+        font-size: 1.5rem;
+        display: inline-flex;
+      }
+      .build-from-source .feature-heading h3 {
+        margin-top: 1.75rem;
+        margin-bottom: 0.5rem;
+        margin-left: 0.5rem;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #0f1320;
+        --bg2: #0a0d18;
+        --surface: #182033;
+        --accent: #61afef;
+        --accent2: #c678dd;
+        --green: #98c379;
+        --yellow: #e5c07b;
+        --orange: #d19a66;
+        --text: #abb2bf;
+        --text-bright: #e6e6e6;
+        --border: #25304a;
+        --radius: 10px;
+        --mono:
+          "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      /* ── NAV ── */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(15, 19, 32, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2rem;
+        height: 56px;
+      }
+
+      .nav-brand {
+        font-family: var(--mono);
+        font-size: 1.05rem;
+        color: var(--accent);
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 1.5rem;
+        list-style: none;
+      }
+      .nav-links a {
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: color 0.2s;
+      }
+      .nav-links a:hover {
+        color: var(--text-bright);
+      }
+
+      /* ── HERO ── */
+      .hero {
+        text-align: center;
+        padding: 6rem 1.5rem 5rem;
+        background: radial-gradient(
+          ellipse 80% 50% at 50% 0%,
+          rgba(97, 175, 239, 0.14) 0%,
+          transparent 70%
+        );
+      }
+
+      .hero-eyebrow {
+        display: inline-block;
+        background: rgba(97, 175, 239, 0.15);
+        border: 1px solid rgba(97, 175, 239, 0.35);
+        color: var(--accent);
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.3rem 0.9rem;
+        border-radius: 999px;
+        margin-bottom: 1.5rem;
+      }
+
+      .hero .hero-img img {
+        height: 100px;
+        text-align: center;
+      }
+
+      h1 {
+        font-size: clamp(2.5rem, 6vw, 4.5rem);
+        font-weight: 800;
+        color: var(--text-bright);
+        line-height: 1.15;
+        margin-bottom: 1.25rem;
+      }
+
+      h1 span {
+        color: var(--accent);
+      }
+
+      .hero-sub {
+        font-size: clamp(1rem, 2vw, 1.2rem);
+        color: var(--text);
+        max-width: 720px;
+        margin: 0 auto 2.5rem;
+      }
+
+      /* ── TERMINAL BLOCK ── */
+      .terminal {
+        display: inline-flex;
+        flex-direction: column;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        text-align: left;
+        min-width: min(620px, 90vw);
+        max-width: 90vw;
+        overflow: hidden;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+      }
+
+      .terminal-bar {
+        background: var(--surface);
+        padding: 0.55rem 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .dot-red {
+        background: #ff5f57;
+      }
+      .dot-yellow {
+        background: #febc2e;
+      }
+      .dot-green {
+        background: #28c840;
+      }
+
+      .terminal-body {
+        padding: 1.25rem 1.5rem;
+      }
+
+      .cmd-line {
+        font-family: var(--mono);
+        font-size: 0.88rem;
+        line-height: 1.7;
+        white-space: normal;
+        overflow-x: auto;
+      }
+      .cmd-line > span + span {
+        margin-left: 0.5em;
+      }
+
+      .prompt {
+        color: var(--green);
+      }
+      .cmd {
+        color: var(--text-bright);
+      }
+      .out {
+        color: var(--yellow);
+      }
+      .cmt {
+        color: #6b7399;
+      }
+
+      /* ── HERO CTA ── */
+      .hero-ctas {
+        display: flex;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        padding: 0.55rem 1rem;
+        border-radius: 6px;
+        text-decoration: none;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .btn-primary {
+        background: rgba(97, 175, 239, 0.18);
+        border: 1px solid rgba(97, 175, 239, 0.45);
+        color: var(--accent);
+      }
+      .btn-primary:hover {
+        background: rgba(97, 175, 239, 0.3);
+      }
+      .btn-ghost {
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .btn-ghost:hover {
+        border-color: var(--accent);
+        color: var(--text-bright);
+      }
+
+      /* ── SECTIONS ── */
+      section {
+        padding: 5rem 1.5rem;
+      }
+      section + section {
+        border-top: 1px solid var(--border);
+      }
+
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+      }
+
+      .section-label {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 0.75rem;
+      }
+
+      h2 {
+        font-size: clamp(1.6rem, 3vw, 2.2rem);
+        color: var(--text-bright);
+        font-weight: 700;
+        margin-bottom: 1rem;
+      }
+
+      h3 {
+        color: var(--text-bright);
+      }
+
+      p {
+        color: var(--text);
+        margin-bottom: 1rem;
+      }
+      p:last-child {
+        margin-bottom: 0;
+      }
+
+      /* ── FEATURE GRID ── */
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+        margin-top: 2.5rem;
+      }
+
+      .feature-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
+      }
+      .feature-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+
+      .feature-icon {
+        font-size: 1.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .feature-card h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      .feature-card p {
+        font-size: 0.875rem;
+        margin: 0;
+      }
+
+      /* ── INSTALL STEPS ── */
+      .steps {
+        margin-top: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+      }
+
+      .step {
+        display: flex;
+        gap: 1.25rem;
+        align-items: flex-start;
+      }
+
+      .step-num {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(97, 175, 239, 0.15);
+        border: 1px solid rgba(97, 175, 239, 0.4);
+        color: var(--accent);
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .step-body h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+      }
+      .step-body p {
+        font-size: 0.875rem;
+        margin: 0;
+      }
+
+      code {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.1em 0.4em;
+        color: var(--yellow);
+      }
+
+      pre {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1rem 1.25rem;
+        overflow-x: auto;
+        margin: 1rem 0;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--text-bright);
+        font-size: 0.85rem;
+      }
+
+      /* ── SPLIT GRIDS ── */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        margin-top: 2.5rem;
+      }
+      @media (max-width: 760px) {
+        .split {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.75rem;
+      }
+
+      .card h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+      }
+
+      .card p {
+        font-size: 0.9rem;
+      }
+
+      /* ── COMMAND LIST ── */
+      .cmds {
+        margin-top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      .cmd-row {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        font-size: 0.85rem;
+      }
+      .cmd-row code {
+        color: var(--green);
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+      .cmd-row span {
+        color: var(--text);
+      }
+
+      /* ── COMPARISON TABLE ── */
+      .bd-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        font-size: 0.85rem;
+      }
+      .bd-table th {
+        text-align: left;
+        color: var(--accent);
+        font-family: var(--mono);
+        font-weight: 600;
+        padding: 0.5rem 0.7rem;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .bd-table td {
+        padding: 0.5rem 0.7rem;
+        color: var(--text);
+        border-bottom: 1px solid rgba(46, 49, 80, 0.5);
+        vertical-align: top;
+      }
+      .bd-table tr:last-child td {
+        border-bottom: none;
+      }
+      .bd-table td:first-child {
+        color: var(--yellow);
+        font-family: var(--mono);
+        white-space: nowrap;
+      }
+
+      /* ── MODULE TAGS ── */
+      .modules {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 1rem 0;
+      }
+      .mod-tag {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--accent2);
+        background: rgba(198, 120, 221, 0.1);
+        border: 1px solid rgba(198, 120, 221, 0.3);
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+      }
+
+      /* ── LINKS ── */
+      a.link {
+        color: var(--accent);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color 0.2s;
+      }
+      a.link:hover {
+        border-color: var(--accent);
+      }
+
+      /* ── FOOTER ── */
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 2rem 1.5rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: #555c7a;
+      }
+      footer a {
+        color: #6b7399;
+        text-decoration: none;
+      }
+      footer a:hover {
+        color: var(--text);
+      }
+      footer .footer-links {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+        margin-top: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      /* ── ASCII DIAGRAM ── */
+      .ascii-diagram {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--text);
+        line-height: 1.45;
+        overflow-x: auto;
+        white-space: pre;
+        margin: 1.5rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ── NAV ── -->
+    <nav>
+      <a class="nav-brand" href="#">BrightNexus</a>
+      <ul class="nav-links">
+        <li><a href="#what">What</a></li>
+        <li><a href="#why-nexus">Why Nexus</a></li>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#protocol">Protocol</a></li>
+        <li><a href="#brightlink">BrightLink</a></li>
+        <li><a href="#install">Install</a></li>
+        <li><a href="#security">Security</a></li>
+        <li>
+          <a href="https://github.com/Digital-Defiance/BrightNexus">GitHub</a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- ── HERO ── -->
+    <header class="hero">
+      <div class="hero-eyebrow">🔐 Secure Enclave bridge + BrightLink agent</div>
+      <div class="hero-img">
+        <img src="brightnexus.png" alt="BrightNexus" height="100" />
+      </div>
+      <p class="hero-sub">
+        A macOS status-bar app that bridges Node.js and the
+        <a class="link" href="https://brightchain.org"
+          ><strong>BrightChain</strong></a
+        >
+        stack to Apple's <strong>Secure Enclave</strong>, and hosts the BrightLink
+        agent for the
+        <a class="link" href="https://bsh.brightdate.org"
+          ><strong>bsh</strong></a
+        >
+        shell. Hardware-backed P-256 signing, host-resident secp256k1 ECIES,
+        TOTP-gated key export — all over a local Unix socket. Zero network
+        surface.
+      </p>
+
+      <div class="terminal">
+        <div class="terminal-bar">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <div class="terminal-body">
+          <div class="cmd-line">
+            <span class="cmt"
+              ># probe the bridge — JSON in, JSON out, no newlines</span
+            >
+          </div>
+          <div class="cmd-line">
+            <span class="prompt">$</span>
+            <span class="cmd">printf '%s' '{"cmd":"HEARTBEAT"}' \</span>
+          </div>
+          <div class="cmd-line">
+            <span class="prompt"> &gt;</span>
+            <span class="cmd"
+              >| nc -U ~/.brightchain/brightnexus/brightnexus.sock</span
+            >
+          </div>
+          <div class="cmd-line">
+            <span class="out"
+              >{"ok":true,"timestamp":"2026-05-21T17:02:11Z","service":"enclave-bridge"}</span
+            >
+          </div>
+          <div class="cmd-line" style="margin-top: 0.6rem">
+            <span class="cmt"
+              ># sign with the Secure Enclave (P-256, hardware)</span
+            >
+          </div>
+          <div class="cmd-line">
+            <span class="prompt">$</span>
+            <span class="cmd"
+              >node -e "..." # via @digitaldefiance/enclave-bridge-client</span
+            >
+          </div>
+          <div class="cmd-line">
+            <span class="out">signature: MEUCIQ...== (DER)</span>
+          </div>
+          <div class="cmd-line" style="margin-top: 0.6rem">
+            <span class="cmt"># private bytes never leave the SEP. ever.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#install">$ Install →</a>
+        <a
+          class="btn btn-ghost"
+          href="https://github.com/Digital-Defiance/BrightNexus"
+          >View on GitHub</a
+        >
+      </div>
+    </header>
+
+    <!-- ── WHAT ── -->
+    <section id="what">
+      <div class="container">
+        <div class="section-label">What it is</div>
+        <h2>One menu-bar app, two protocol roles.</h2>
+        <p>
+          BrightNexus is a SwiftUI status-bar application for macOS Apple
+          Silicon. It opens a single Unix domain socket in your home directory
+          and serves two layered protocols on it:
+        </p>
+
+        <div class="split" style="margin-top: 1.75rem">
+          <div class="card">
+            <h3>🔐 Enclave Bridge Protocol (EBP/1)</h3>
+            <p>
+              The original Enclave Bridge wire surface, preserved byte-for-byte.
+              JSON-over-Unix-socket commands that proxy a curated subset of
+              cryptographic operations: ECDSA signing with a non-extractable
+              Secure Enclave P-256 key, ECIES decryption with a host-resident
+              secp256k1 key, optional TOTP-gated key export. Reference client is
+              <a
+                class="link"
+                href="https://www.npmjs.com/package/@digitaldefiance/enclave-bridge-client"
+                ><code>@digitaldefiance/enclave-bridge-client</code></a
+              >.
+            </p>
+          </div>
+          <div class="card">
+            <h3>🛰️ BrightLink agent</h3>
+            <p>
+              <!-- TODO -->
+            </p>
+          </div>
+        </div>
+
+        <p
+          style="
+            margin-top: 1.75rem;
+            font-size: 0.9rem;
+            padding: 0.9rem 1.1rem;
+            background: rgba(229, 192, 123, 0.07);
+            border-left: 3px solid var(--yellow);
+            border-radius: 0 var(--radius) var(--radius) 0;
+          "
+        >
+          <strong style="color: var(--text-bright)"
+            >Renamed from Enclave&nbsp;Bridge.</strong
+          >
+          This project was previously published as <em>Enclave Bridge</em>. The
+          rename reflects the broader role: BrightLink agent + BrightChain hardware
+          nexus, not just a single-purpose ECIES decrypt proxy. The EBP/1 wire
+          surface is unchanged. Existing Node clients keep working — see the
+          <a class="link" href="#install">migration notes</a> below.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── WHY NEXUS ── -->
+    <section id="why-nexus">
+      <div class="container">
+        <div class="section-label">Naming</div>
+        <h2>Why "Nexus"?</h2>
+        <p>
+          The name
+          <strong style="color: var(--text-bright)">BrightNexus</strong>
+          is a nod to the concept of a unified "everything" where time and space
+          are no longer barriers. In the same way that our
+          <strong style="color: var(--text-bright)"
+            ><a href="https://brightdate.org/spacetime"
+            target="_blank"
+              >BrightSpacetime</a
+            ></strong
+          >
+          standard unifies <code>[t, x, y, z]</code> into a single 4D Cartesian
+          vector, the Nexus serves as the bridge between the legacy compute
+          environment and the secure, multidimensional filesystem of the future.
+        </p>
+        <p style="margin-top: 0.75rem">
+          <strong style="color: var(--text-bright)"
+            >BrightLink</strong
+          >
+          over this bridge is what allows us to project meaningful, verified
+          data from the secure enclave into the user's workspace — effectively
+          "linking" reality into the digital stream.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── ARCHITECTURE ── -->
+    <section id="architecture">
+      <div class="container">
+        <div class="section-label">Architecture</div>
+        <h2>Single socket, two trust domains.</h2>
+        <p>
+          The bridge is a small SwiftUI app that lives in your menu bar. It
+          opens an <code>AF_UNIX</code> socket under your home directory,
+          accepts concurrent client connections, and dispatches each accepted
+          file descriptor to its own <code>DispatchQueue</code>. The protocol
+          framing is plain UTF-8 JSON, one object per request, one per response.
+        </p>
+
+        <div class="ascii-diagram">┌──────────────────────┐    Unix socket               ┌────────────────────────────┐
+│ Node.js application  │  ~/.brightchain/brightnexus/ │  BrightNexus (SwiftUI)     │
+│                      │  brightnexus.sock            │                            │
+│  ┌────────────────┐  │  ──────────────────────────► │  BridgeProtocolHandler     │
+│  │ enclave-bridge │  │                              │  ├─ ECIES (secp256k1)      │
+│  │ -client        │  │  EBP/1 + BrightLink JSON     │  ├─ SecureEnclaveKeyMgr    │
+│  └────────────────┘  │  ◄───────────────────────────│  ├─ TOTP (RFC 6238)        │
+│  ┌────────────────┐  │                              │  └─ AppState / SocketSrv   │
+│  │ node-ecies-lib │  │                              │                            │
+│  └────────────────┘  │                              │           │                │
+└──────────────────────┘                              │           ▼                │
+                                                      │  ┌──────────────────────┐  │
+                                                      │  │ Apple Secure Enclave │  │
+                                                      │  │ (P-256, hardware)    │  │
+                                                      │  └──────────────────────┘  │
+                                                      └────────────────────────────┘</div>
+
+        <div class="split" style="margin-top: 2rem">
+          <div class="card">
+            <h3>🔑 Two keys, two trust domains</h3>
+            <p>
+              <strong>Secure Enclave P-256</strong> — generated inside the SEP
+              with <code>kSecAttrAccessibleWhenUnlockedThisDeviceOnly</code> and
+              <code>.privateKeyUsage</code>. Bytes are non-extractable. Signs
+              with ECDSA-SHA256.
+            </p>
+            <p style="margin-top: 0.75rem">
+              <strong>Host-resident secp256k1</strong> — 32 raw bytes at
+              <code>~/.brightchain/brightnexus/ecies-privkey.bin</code> (mode
+              <code>0600</code>). Used for ECIES decryption with AES-256-GCM
+              (12-byte IV, 16-byte tag) and HKDF-SHA256, byte-compatible with
+              <a
+                class="link"
+                href="https://www.npmjs.com/package/@digitaldefiance/node-ecies-lib"
+                ><code>@digitaldefiance/node-ecies-lib</code></a
+              >.
+            </p>
+          </div>
+          <div class="card">
+            <h3>📁 Disk layout</h3>
+            <p>
+              One per-user directory tree under <code>~/.brightchain/</code>,
+              mode <code>0700</code> throughout:
+            </p>
+            <div
+              class="ascii-diagram"
+              style="margin: 0.75rem 0 0; font-size: 0.72rem"
+            >
+              ~/.brightchain/ vendor namespace ~/.brightchain/brightnexus/ app
+              state ~/.brightchain/brightnexus/brightnexus.sock EBP/1 + BrightLink
+              socket ~/.brightchain/brightnexus/ecies-privkey.bin secp256k1 priv
+              (0600) ~/.brightchain/brightnexus/totp-config.json TOTP secrets
+              (0600) ~/.brightchain/brightnexus/brightnexus.geo.path geo socket
+              pointer (v3)
+            </div>
+          </div>
+        </div>
+
+        <p style="margin-top: 1.5rem; font-size: 0.875rem">
+          For backward compatibility, BrightNexus also binds a secondary socket
+          at <code>~/.enclave/enclave-bridge.sock</code> and routes traffic from
+          both into the same protocol handler. On first launch it migrates
+          <code>ecies-privkey.bin</code> and <code>totp-config.json</code> from
+          <code>~/.enclave/</code> into
+          <code>~/.brightchain/brightnexus/</code> via atomic
+          <code>rename(2)</code>. Existing keys are preserved.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── PROTOCOL ── -->
+    <section id="protocol">
+      <div class="container">
+        <div class="section-label">EBP/1 — current and stable</div>
+        <h2>Fourteen commands, all JSON.</h2>
+        <p>
+          Every request is a JSON object with at least a <code>cmd</code>
+          field; every response is either a command-specific success object or
+          <code>{"error":"&lt;reason&gt;"}</code>. Binary fields (public keys,
+          signatures, ciphertexts) are standard Base64 with padding. There is no
+          length prefix and no newline delimiter — the server reads complete
+          JSON objects from the byte stream.
+        </p>
+
+        <table class="bd-table">
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>HEARTBEAT</td>
+              <td>Liveness probe with timestamp</td>
+            </tr>
+            <tr>
+              <td>VERSION / INFO</td>
+              <td>App version, build, platform, uptime</td>
+            </tr>
+            <tr>
+              <td>STATUS</td>
+              <td>Peer-key flag, enclave availability</td>
+            </tr>
+            <tr>
+              <td>METRICS</td>
+              <td>Service uptime, reserved counters</td>
+            </tr>
+            <tr>
+              <td>GET_PUBLIC_KEY</td>
+              <td>Bridge's secp256k1 public key (for ECIES)</td>
+            </tr>
+            <tr>
+              <td>GET_ENCLAVE_PUBLIC_KEY</td>
+              <td>Secure Enclave P-256 public key</td>
+            </tr>
+            <tr>
+              <td>SET_PEER_PUBLIC_KEY</td>
+              <td>Cache a peer's secp256k1 public key on this connection</td>
+            </tr>
+            <tr>
+              <td>LIST_KEYS</td>
+              <td>Enumerate keys with TOTP status &amp; fingerprints</td>
+            </tr>
+            <tr>
+              <td>ENCLAVE_SIGN</td>
+              <td>ECDSA-SHA256 over P-256 in the SEP</td>
+            </tr>
+            <tr>
+              <td>ENCLAVE_DECRYPT</td>
+              <td>ECIES decrypt with the bridge secp256k1 private key</td>
+            </tr>
+            <tr>
+              <td>ENCLAVE_GENERATE_KEY</td>
+              <td>Reserved (returns error in EBP/1)</td>
+            </tr>
+            <tr>
+              <td>ENCLAVE_ROTATE_KEY</td>
+              <td>Reserved (returns error in EBP/1)</td>
+            </tr>
+            <tr>
+              <td>ENABLE_TOTP</td>
+              <td>Enable per-key TOTP, emit provisioning URI</td>
+            </tr>
+            <tr>
+              <td>EXPORT_KEY</td>
+              <td>Export public key, gated by TOTP if enabled</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="modules" style="margin-top: 1.5rem">
+          <span class="mod-tag">secp256k1 + AES-256-GCM</span>
+          <span class="mod-tag">P-256 ECDSA-SHA256</span>
+          <span class="mod-tag">HKDF-SHA256</span>
+          <span class="mod-tag">12-byte IV</span>
+          <span class="mod-tag">16-byte tag</span>
+          <span class="mod-tag">RFC 6238 TOTP</span>
+          <span class="mod-tag">Base64 wire format</span>
+        </div>
+
+        <p style="margin-top: 1.5rem; font-size: 0.875rem">
+          Full specification:
+          <a
+            class="link"
+            href="https://github.com/Digital-Defiance/BrightNexus/blob/main/ENCLAVE_BRIDGE_SPEC.md"
+            >Enclave Bridge Protocol (EBP/1)</a
+          >.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── BrightLink ── -->
+    <section id="brightlink">
+      <div class="container">
+        <div class=""><img src="brightlink.png" alt="BrightLink" /></div>
+        <div class="section-label">BrightLink — implemented</div>
+        <h2>Hardware-anchored sessions for bsh.</h2>
+        <!-- TODO ditch SDI -->
+        <p>
+          <a class="link" href="https://bsh.brightdate.org">BSH</a> emits
+          structured credential and geo-context payloads as
+          <strong>OSC 7777</strong> terminal escape sequences. SDI v1 and v2
+          ran a separate <code>SDIAgent</code> daemon next to the Enclave
+          Bridge and assumed terminal emulators would forward OSC 7777 over a
+          side channel — no emulator did, and that gap was never closed. v3
+          (SDI-EB) collapses the two roles and closes the relay gap:
+          <strong>BrightNexus is the SDI agent</strong>, and
+          <strong>bsh is the OSC 7777 capture point</strong>. Session
+          establishment is an EBP/1 command pair on the existing socket,
+          encrypted under the bridge's persistent secp256k1 key and signed
+          with the device's Secure Enclave P-256 key.
+        </p>
+
+        <p
+          style="
+            margin-top: 0.75rem;
+            font-size: 0.9rem;
+            padding: 0.9rem 1.1rem;
+            background: rgba(97, 175, 239, 0.07);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 var(--radius) var(--radius) 0;
+          "
+        >
+          <strong style="color: var(--text-bright)"
+            >Status — three commands live, two on the way.</strong
+          >
+          <code>LINK_REGISTER</code> (RFC §4.5),
+          <code>LINK_INGEST</code> (§4.9), and
+          <code>LINK_PUSH</code> subscribe (§4.7) are implemented. Captured
+          credentials surface in the menu-bar Credentials submenu and the
+          Dashboard "Credentials" view with click-to-copy and live TTL
+          countdowns. <code>LINK_PUSH</code> emit and the
+          <code>LINK_GEO_*</code> / <code>LINK_AUDIT_EMIT</code> commands are
+          reserved on the wire and ship in subsequent passes; an out-of-date
+          BrightNexus that does not know the v3 surface can be distinguished
+          from a v3-aware one by the stable
+          <code>"&lt;COMMAND&gt; not implemented in this build"</code> error
+          string.
+        </p>
+
+        <div class="split" style="margin-top: 2rem">
+          <div>
+            <div class="steps">
+              <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-body">
+                  <h3>LINK_REGISTER over EBP/1</h3>
+                  <p>
+                    Client connects to the bridge socket, sends a 16-byte
+                    <code>clientNonce</code> and an
+                    <strong style="color: var(--text-bright)">ECIES</strong>
+                    envelope addressed to the bridge's persistent secp256k1
+                    public key. Plaintext carries an ephemeral secp256k1 public
+                    key, a 32-byte <code>clientShare</code>, and a BrightDate
+                    timestamp.
+                  </p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-body">
+                  <h3>Bilateral key derivation</h3>
+                  <p>
+                    Bridge generates its own 32-byte
+                    <code>bridgeShare</code> and a 16-byte
+                    <code>sessionId</code>, returns them in an ECIES envelope
+                    addressed to the client's ephemeral key. Both sides compute
+                    <code
+                      >K_session = HKDF-SHA256(IKM = clientShare ∥ bridgeShare,
+                      salt = clientNonce ∥ sessionId, info =
+                      "sdi-session-key-v3", L = 32)</code
+                    >.
+                  </p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-body">
+                  <h3>SEP-signed transcript</h3>
+                  <p>
+                    Bridge signs the canonical 234-byte transcript (literal
+                    prefix, lengths, nonces, shares, session ID, timestamps)
+                    with its
+                    <strong style="color: var(--text-bright)"
+                      >Secure Enclave P-256</strong
+                    >
+                    key. Client verifies against a TOFU-pinned SEP public key. A
+                    future impostor bridge cannot forge the signature without
+                    the SEP.
+                  </p>
+                </div>
+              </div>
+              <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-body">
+                  <h3>LINK_INGEST + LINK_PUSH</h3>
+                  <p>
+                    bsh captures OSC 7777 sequences from two paths — the
+                    <code>bsh-inject</code> in-process builtin (Path A) and a
+                    PTY-proxy stream filter that scrapes subprocess stdout
+                    (Path B) — and forwards each one to the bridge as
+                    <code>LINK_INGEST</code>, sharing one
+                    <code>c_shell_to_agent</code> counter. Bridge → shell
+                    pushes flow over a long-lived
+                    <code>LINK_PUSH</code> subscription with
+                    <code>c_agent_to_shell</code>. Each direction's counter is
+                    bound into the AES-256-GCM AAD via a length-prefixed
+                    <code>dir_tag</code>, so a captured ciphertext cannot be
+                    replayed in either direction.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="modules" style="margin-top: 1.5rem">
+              <span class="mod-tag">ECIES envelope</span>
+              <span class="mod-tag">SEP-signed transcript</span>
+              <span class="mod-tag">HKDF-SHA256</span>
+              <span class="mod-tag">AES-256-GCM</span>
+              <span class="mod-tag">per-direction counters</span>
+              <span class="mod-tag">8-hour session TTL</span>
+              <span class="mod-tag">TOFU pin</span>
+              <span class="mod-tag">fail-closed</span>
+            </div>
+          </div>
+
+          <!-- v3 vs out-of-date demo -->
+          <div class="terminal" style="display: block; align-self: start">
+            <div class="terminal-bar">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <div class="terminal-body">
+              <div class="cmd-line">
+                <span class="cmt"
+                  ># LINK_REGISTER lands a real session today...</span
+                >
+              </div>
+              <div class="cmd-line">
+                <span class="prompt">$</span>
+                <span class="cmd"
+                  >yarn test:against-real-brightnexus    <span class="cmt"
+                    ># in test-harness/</span
+                  ></span
+                >
+              </div>
+              <div class="cmd-line">
+                <span class="out">PASS  sdi-register.test.ts (8 tests)</span>
+              </div>
+              <div class="cmd-line">
+                <span class="out">PASS  sdi-ingest.test.ts (7 tests)</span>
+              </div>
+              <div class="cmd-line" style="margin-top: 0.6rem">
+                <span class="cmt"
+                  ># reserved commands return a stable error...</span
+                >
+              </div>
+              <div class="cmd-line">
+                <span class="out"
+                  >{"error":"LINK_AUDIT_EMIT not implemented in this build"}</span
+                >
+              </div>
+              <div class="cmd-line" style="margin-top: 0.6rem">
+                <span class="cmt"># ...vs an out-of-date EBP/1 bridge:</span>
+              </div>
+              <div class="cmd-line">
+                <span class="out"
+                  >{"error":"Unknown command: LINK_AUDIT_EMIT"}</span
+                >
+              </div>
+              <div class="cmd-line" style="margin-top: 0.6rem">
+                <span class="cmt"
+                  ># clients use the distinction to gate v3 features.</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style="margin-top: 1.5rem; font-size: 0.875rem">
+          Full v3 specification:
+          <a
+            class="link"
+            href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-sdi-osc7777-enclave-bridge.md"
+            >SDI-EB v3 RFC</a
+          >. Companion paper:
+          <a
+            class="link"
+            href="https://github.com/Digital-Defiance/BrightNexus/blob/main/ENCLAVE_BRIDGE_SPEC.md"
+            >EBP/1</a
+          >. Cipher suite:
+          <a
+            class="link"
+            href="https://github.com/Digital-Defiance/digitaldefiance-ecies-lib"
+            >DD-ECIES v1.0</a
+          >.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── INSTALL ── -->
+    <section id="install">
+      <div class="container">
+        <div class="section-label">Getting started</div>
+        <h2>Install BrightNexus.</h2>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <span class="feature-emoji">🛠️</span>
+          </div>
+          <div class="feature-heading"><h3>Build from source</h3></div>
+          <p>
+            BrightNexus is a SwiftUI app for macOS Apple Silicon. macOS 13+ and
+            Xcode 15+ are required.
+          </p>
+
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-body">
+                <h3>Clone</h3>
+                <pre><code>git clone https://github.com/Digital-Defiance/BrightNexus.git
+cd BrightNexus</code></pre>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-body">
+                <h3>Open in Xcode &amp; build</h3>
+                <pre><code>open BrightNexus.xcodeproj
+# Select the BrightNexus scheme, then ⌘R to run.</code></pre>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-body">
+                <h3>Install the Node client</h3>
+                <pre><code>npm install @digitaldefiance/enclave-bridge-client</code></pre>
+                <p style="margin-top: 0.5rem">
+                  The client package name is unchanged from the Enclave Bridge
+                  era; the wire surface it speaks is unchanged. A
+                  <code>brightnexus-client</code> shim package may follow as v3
+                  SDI commands ship.
+                </p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">4</div>
+              <div class="step-body">
+                <h3>Sanity-check the socket</h3>
+                <pre><code>printf '%s' '{"cmd":"HEARTBEAT"}' \
+  | nc -U ~/.brightchain/brightnexus/brightnexus.sock</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <br />
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <span class="feature-emoji">🔁</span>
+          </div>
+          <div class="feature-heading">
+            <h3>Migrating from Enclave Bridge</h3>
+          </div>
+          <p>If you previously installed the standalone Enclave Bridge app:</p>
+          <ul
+            style="
+              font-size: 0.9rem;
+              margin: 0.75rem 0 0 1.25rem;
+              color: var(--text);
+            "
+          >
+            <li>
+              <strong>Quit the old menu-bar app first.</strong> It must not be
+              running when BrightNexus starts.
+            </li>
+            <li>
+              <strong>Launch BrightNexus.</strong> On first run it migrates
+              <code>~/.enclave/ecies-privkey.bin</code> and
+              <code>~/.enclave/totp-config.json</code> into
+              <code>~/.brightchain/brightnexus/</code> via atomic
+              <code>rename(2)</code>. Your secp256k1 identity, TOTP secrets, and
+              persistent ECIES public key are preserved.
+            </li>
+            <li>
+              <strong>Existing Node clients keep working.</strong> The bridge
+              binds a compatibility socket at
+              <code>~/.enclave/enclave-bridge.sock</code> for one major version.
+              Update clients to look at
+              <code>~/.brightchain/brightnexus/brightnexus.sock</code> at your
+              leisure.
+            </li>
+            <li>
+              <strong>Delete the old app</strong> from
+              <code>/Applications</code> after confirming BrightNexus is
+              healthy.
+            </li>
+          </ul>
+          <p style="margin-top: 0.75rem; font-size: 0.875rem">
+            The on-disk key file format, the TOTP config JSON, and the EBP/1
+            wire surface are all unchanged.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SECURITY ── -->
+    <section id="security">
+      <div class="container">
+        <div class="section-label">Security model</div>
+        <h2>What you trust, and what you don't.</h2>
+
+        <div class="split">
+          <div class="card">
+            <h3>✅ What's hardware-bound</h3>
+            <p>
+              The Secure Enclave P-256 private key is generated inside the SEP
+              with <code>kSecAttrAccessibleWhenUnlockedThisDeviceOnly</code> and
+              <code>.privateKeyUsage</code>. Even root cannot read its bytes.
+              <code>ENCLAVE_SIGN</code> and the SDI-EB v3 transcript signature
+              both pass through this key.
+            </p>
+            <p style="margin-top: 0.75rem">
+              The host secp256k1 private key sits at rest under POSIX
+              <code>0600</code> in your home directory. For defense in depth
+              (encrypted with a user password before being addressed to the
+              bridge), the
+              <a
+                class="link"
+                href="https://github.com/Digital-Defiance/brightchain-api-lib"
+                ><code>SecureEnclaveKeyring</code></a
+              >
+              consumer in <code>brightchain-api-lib</code> layers
+              password-AES-GCM and ECIES-to-the-bridge into a single
+              double-encrypted blob.
+            </p>
+          </div>
+          <div class="card">
+            <h3>⚠️ What's in scope</h3>
+            <p>
+              Any local process running as your user that can
+              <code>connect(2)</code> to the socket can issue any EBP/1 command
+              while the bridge is running. <code>EXPORT_KEY</code> can be gated
+              by RFC 6238 TOTP per key; <code>ENCLAVE_SIGN</code> and
+              <code>ENCLAVE_DECRYPT</code> are not gated by TOTP in EBP/1.
+              Quitting the menu-bar app revokes both capabilities until you
+              relaunch.
+            </p>
+            <p style="margin-top: 0.75rem">
+              No network listeners. No telemetry. No third-party services. The
+              bridge speaks only on a Unix domain socket inside your home
+              directory, with filesystem permissions enforced by macOS.
+            </p>
+          </div>
+        </div>
+
+        <p style="margin-top: 1.5rem; font-size: 0.875rem">
+          For the v3 SDI threat model see
+          <a
+            class="link"
+            href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-sdi-osc7777-enclave-bridge.md"
+            >SDI-EB §9 and §11</a
+          >.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── RELATED ── -->
+    <section>
+      <div class="container">
+        <div class="section-label">Related projects</div>
+        <h2>The BrightChain stack.</h2>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-icon">🐚</div>
+            <h3>bsh — BrightShell</h3>
+            <p>
+              The zsh-compatible shell that emits OSC 7777 SDI sequences via
+              the <code>bsh-inject</code> builtin (Path A) and a PTY-proxy
+              stream filter that captures OSC 7777 from subprocess stdout
+              (Path B). Both paths feed BrightNexus over <code>LINK_INGEST</code>
+              on the EBP/1 socket; bsh — not the terminal emulator — is the
+              capture point.
+              <a class="link" href="https://bsh.brightdate.org">site</a>
+              ·
+              <a class="link" href="https://github.com/Digital-Defiance/bsh"
+                >source</a
+              >
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📦</div>
+            <h3>enclave-bridge-client</h3>
+            <p>
+              TypeScript client for EBP/1. Drop-in replacement; package name
+              unchanged across the rename.
+              <a
+                class="link"
+                href="https://www.npmjs.com/package/@digitaldefiance/enclave-bridge-client"
+                >npm</a
+              >
+              ·
+              <a
+                class="link"
+                href="https://github.com/Digital-Defiance/enclave-bridge-client"
+                >source</a
+              >
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🔐</div>
+            <h3>node-ecies-lib</h3>
+            <p>
+              The DD-ECIES wire format the bridge speaks for
+              <code>ENCLAVE_DECRYPT</code> and <code>LINK_REGISTER</code>:
+              secp256k1 + AES-256-GCM + HKDF-SHA256, byte-compatible across
+              languages.
+              <a
+                class="link"
+                href="https://www.npmjs.com/package/@digitaldefiance/node-ecies-lib"
+                >npm</a
+              >
+              ·
+              <a
+                class="link"
+                href="https://github.com/Digital-Defiance/digitaldefiance-ecies-lib"
+                >spec</a
+              >
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">⛓️</div>
+            <h3>BrightChain</h3>
+            <p>
+              The platform consuming BrightNexus. The
+              <code>SecureEnclaveKeyring</code> in
+              <code>brightchain-api-lib</code>
+              uses BrightNexus as its tier-1 key custody provider on Apple
+              Silicon.
+              <a
+                class="link"
+                href="https://github.com/Digital-Defiance/BrightChain"
+                >source</a
+              >
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🛰️</div>
+            <h3>BrightDate</h3>
+            <p>
+              The decimal-SI temporal foundation referenced by SDI-EB v3
+              <code>geo-context</code> timestamps and registration handshake.
+              <a class="link" href="https://brightdate.org">site</a>
+            </p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">📄</div>
+            <h3>EBP/1 specification</h3>
+            <p>
+              Replication-grade specification of the bridge's command surface,
+              ECIES wire format, and SEP key custody.
+              <a
+                class="link"
+                href="https://github.com/Digital-Defiance/BrightNexus/blob/main/ENCLAVE_BRIDGE_SPEC.md"
+                >read it</a
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── FOOTER ── -->
+    <footer>
+      <p>
+        BrightNexus — a SwiftUI macOS app by
+        <a href="https://github.com/Digital-Defiance">Digital Defiance</a>.
+        Released under the
+        <a
+          href="https://github.com/Digital-Defiance/BrightNexus/blob/main/LICENSE"
+          >MIT license</a
+        >. Bundle ID
+        <code style="font-size: 0.78rem"
+          >org.digitaldefiance.brightchain.BrightNexus</code
+        >.
+      </p>
+      <div class="footer-links">
+        <a href="https://github.com/Digital-Defiance/BrightNexus">Source</a>
+        <a
+          href="https://github.com/Digital-Defiance/BrightNexus/blob/main/README.md"
+          >README</a
+        >
+        <a
+          href="https://github.com/Digital-Defiance/BrightNexus/blob/main/ENCLAVE_BRIDGE_SPEC.md"
+          >EBP/1 spec</a
+        >
+        <a
+          href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-sdi-osc7777-enclave-bridge.md"
+          >SDI-EB v3</a
+        >
+        <a href="https://bsh.brightdate.org">bsh</a>
+        <a href="https://brightdate.org">BrightDate</a>
+        <a href="/privacy">Privacy</a>
+      </div>
+    </footer>
+  </body>
+</html>
