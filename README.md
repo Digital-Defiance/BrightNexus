@@ -33,7 +33,7 @@
 **BrightNexus** is a macOS status-bar application (SwiftUI, Apple Silicon) that:
 
 1. Bridges Node.js applications to Apple's **Secure Enclave** (P-256 hardware signing) and to a host-resident **secp256k1** ECIES key, exposed over a Unix domain socket via the Enclave Bridge Protocol (EBP/1). This is the original Enclave Bridge functionality, preserved bit-for-bit.
-2. Hosts the **BrightLink** agent surface defined in the [BrightLink Protocol v1 RFC](https://github.brightchain.org/docs/papers/brightlink/), receiving `LINK_DELIVER` Shell→Agent traffic from `bsh` (or any v1-aware CLI tool) and surfacing the resulting credentials in a menu-bar dropdown and a Dashboard "Credentials" view.
+2. Hosts the **BrightLink** agent surface defined in the [BrightLink Protocol RFC](https://github.brightchain.org/docs/papers/brightlink/), receiving `LINK_DELIVER` Shell→Agent traffic from `bsh` (or any BrightLink-aware CLI tool) and surfacing the resulting credentials in a menu-bar dropdown and a Dashboard "Credentials" view.
 
 BrightNexus is part of the [BrightChain](https://github.brightchain.org) project. Its bundle ID is `org.digitaldefiance.brightchain.BrightNexus`.
 
@@ -45,7 +45,7 @@ BrightNexus is part of the [BrightChain](https://github.brightchain.org) project
 - 📊 **Status-bar UI** — connection count, request count, key fingerprints, and a **Credentials** submenu listing every active BrightLink payload with click-to-copy and live TTL countdowns.
 - 🖥️ **Dashboard Credentials view** — list-style sibling of the menu-bar dropdown, with Clear All toolbar action.
 - 🔑 **Optional TOTP 2FA** — RFC 6238, scannable provisioning URIs.
-- 🛰️ **BrightLink agent role** — `LINK_REGISTER` (RFC §4.5) and `LINK_DELIVER` (§4.6) are implemented. `LINK_PUSH`, `LINK_GEO_*`, and `LINK_AUDIT_EMIT` ship in subsequent passes.
+- 🛰️ **BrightLink agent role** — `LINK_REGISTER` (RFC §4.5), `LINK_DELIVER` (§4.6), and the full `LINK_GEO_*` surface (§9) are implemented. `LINK_PUSH` (§10) and `LINK_AUDIT_EMIT` (§11) are reserved.
 
 ## Requirements
 
@@ -65,7 +65,7 @@ BrightNexus is part of the [BrightChain](https://github.brightchain.org) project
 ```
 ┌──────────────────────┐    Unix socket               ┌────────────────────────────┐
 │  bsh shell or any    │  ~/.brightchain/brightnexus/ │  BrightNexus (SwiftUI)     │
-│  v1-aware CLI tool   │  brightnexus.sock            │                            │
+│  BrightLink-aware CLI tool   │  brightnexus.sock            │                            │
 │                      │                              │  BridgeProtocolHandler     │
 │ ┌──────────────────┐ │  EBP/1 + BrightLink JSON.    │  ├─ ECIES (secp256k1)      │
 │ │ bsh-inject       │ │  ──────────────────────────► │  ├─ SecureEnclaveKeyMgr    │
@@ -148,7 +148,7 @@ BrightLink is greenfield — there are no legacy paths to migrate from and no co
 1. `${BRIGHTNEXUS_SOCKET}` — environment override (reserved name).
 2. `${HOME}/.brightchain/brightnexus/brightnexus.sock` — canonical.
 
-There are no further fallbacks. A v1-aware client that finds neither path treats the bridge as unavailable.
+There are no further fallbacks. A BrightLink-aware client that finds neither path treats the bridge as unavailable.
 
 ## Protocol
 
@@ -175,17 +175,21 @@ Full specification: [Enclave Bridge Protocol (EBP/1)](ENCLAVE_BRIDGE_SPEC.md).
 
 ### BrightLink
 
-The BrightLink surface implements two commands today and reserves the rest. v1-aware clients can detect the reserved-but-not-yet-shipped commands by their stable `"<COMMAND> not implemented in this build"` error string, distinguishing a v1 BrightNexus from an older EBP/1-only bridge that returns `"Unknown command"`.
+The BrightLink surface implements `LINK_REGISTER`, `LINK_DELIVER`, and the full `LINK_GEO_*` query surface (status, proximity, zone, get, refresh). `LINK_PUSH` and `LINK_AUDIT_EMIT` remain reserved and respond with the stable `"<COMMAND> not implemented in this build"` suffix so callers can distinguish a BrightLink-aware bridge that hasn't shipped them yet from an older EBP/1-only bridge that returns `"Unknown command"`.
 
 | Command | Status | Purpose |
 |---|---|---|
 | `LINK_REGISTER` | implemented | Establish a BrightLink session — bilateral HKDF over secp256k1 ECIES, 238-byte canonical transcript signed by SEP P-256, TOFU pin (RFC §4.5). |
 | `LINK_DELIVER` | implemented | Shell → Agent credential delivery. Decrypts under `K_session`, validates direction tag and replay window, drops the payload into `EphemeralStore` for menu-bar / Dashboard display (RFC §4.6). |
 | `LINK_PUSH` | reserved | Agent → Shell long-lived push subscription channel. |
-| `LINK_GEO_GET` / `LINK_GEO_STATUS` / `LINK_GEO_REFRESH` / `LINK_GEO_AUDIT` | reserved | Geo-context queries and audit. |
+| `LINK_GEO_STATUS` | implemented | Engine alive + fix freshness, no scope gate. |
+| `LINK_GEO_PROXIMITY` | implemented | Yes/no for one named zone (`geo:proximity`). |
+| `LINK_GEO_ZONE` | implemented | Current zone identifier and dwell (`geo:zone`). |
+| `LINK_GEO_GET` | implemented | Full position in WGS84, BrightSpace, or both (`geo:precise`). |
+| `LINK_GEO_REFRESH` | implemented | Trigger a fresh fix (`geo:status`). |
 | `LINK_AUDIT_EMIT` | reserved | Shell → bridge audit-event emit. |
 
-Full v1 specification: [BrightLink Protocol v1 RFC](https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md).
+Full v1 specification: [BrightLink Protocol RFC](https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md).
 
 ## Development
 
@@ -250,7 +254,7 @@ The on-disk key file format is the same as the old Enclave Bridge implementation
 - **Per-message ephemeral keys** for ECIES; forward secrecy is provided.
 - **Optional TOTP 2FA** for `EXPORT_KEY`.
 
-For the BrightLink threat model see [RFC §8](https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md#8-security-considerations).
+For the BrightLink threat model see [RFC §14](https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md#14-security-considerations).
 
 ## Troubleshooting
 

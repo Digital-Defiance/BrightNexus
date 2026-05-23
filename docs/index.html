@@ -956,7 +956,7 @@
         <p>
           <a class="link" href="https://bsh.brightdate.org">BSH</a> delivers
           structured credential payloads to BrightNexus over a Unix socket
-          using <strong>BrightLink Protocol v1</strong>. The wire is JSON on a
+          using <strong>BrightLink Protocol</strong>. The wire is JSON on a
           socket. Session establishment is an EBP/1 command pair on the same
           socket, encrypted under the bridge's persistent secp256k1 key and
           signed with the device's Secure Enclave P-256 key.
@@ -983,7 +983,7 @@
           <code>LINK_GEO_*</code>, and <code>LINK_AUDIT_EMIT</code> are
           reserved on the wire and ship in subsequent passes; an out-of-date
           BrightNexus that does not know the BrightLink surface can be
-          distinguished from a v1-aware one by the stable
+          distinguished from a BrightLink-aware one by the stable
           <code>"&lt;COMMAND&gt; not implemented in this build"</code> error
           string.
         </p>
@@ -1129,7 +1129,7 @@
           <a
             class="link"
             href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md"
-            >BrightLink Protocol v1 RFC</a
+            >BrightLink Protocol RFC</a
           >. Companion paper:
           <a
             class="link"
@@ -1306,8 +1306,8 @@ cd BrightNexus</code></pre>
           For the BrightLink threat model see
           <a
             class="link"
-            href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md"
-            >BrightLink RFC §8</a
+            href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md#14-security-considerations"
+            >BrightLink RFC §14</a
           >.
         </p>
       </div>
