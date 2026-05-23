@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	    BrightNexus runs as a Developer ID application with Hardened Runtime
+	    enabled and App Sandbox disabled. It claims no special capabilities:
+
+	      - No Hardened Runtime exceptions (no JIT, no library-validation
+	        bypass, no debugger, no DYLD env var inheritance).
+	      - No App Sandbox (the BrightLink protocol surface needs to bind
+	        an AF_UNIX socket at ~/.brightchain/brightnexus/brightnexus.sock
+	        outside any sandbox container).
+	      - No app groups, no keychain access groups, no network client
+	        capability — outbound URLs (e.g. the GitHub link in the menu
+	        bar) are opened by NSWorkspace in a separate process.
+
+	    CoreLocation access is gated by Info.plist usage descriptions plus
+	    the user's TCC grant in System Settings; macOS does not require an
+	    entitlement for CoreLocation when the App Sandbox is off.
+
+	    This file exists primarily to document that posture explicitly at
+	    sign time. Adding a key here without a corresponding code change
+	    will be visible in the signed binary's entitlements blob.
+	-->
+</dict>
+</plist>
