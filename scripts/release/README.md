@@ -108,7 +108,7 @@ Creates `build/EnclaveBridge.dmg`
 
 ### Update Version
 ```bash
-./scripts/release/update-version.sh 1.0.1
+./scripts/bump-version.bsh 1.0.1
 ```
 Updates version number in project files.
 

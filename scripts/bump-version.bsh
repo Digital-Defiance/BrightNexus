@@ -1,0 +1,194 @@
+#!/opt/homebrew/bin/bsh
+# Bump the BrightNexus version across every place it lives.
+#
+# Usage:
+#   ./scripts/bump-version.bsh <new-version> [build-number]
+#   ./scripts/bump-version.bsh 1.0.8           # auto-increment build number
+#   ./scripts/bump-version.bsh 1.1.0 50        # explicit build number
+#   ./scripts/bump-version.bsh --dry-run 1.0.8 # show what would change
+#
+# What it touches (in order):
+#   1. BrightNexus.xcodeproj/project.pbxproj
+#        - MARKETING_VERSION       (the user-facing version, e.g. "1.0.7")
+#        - CURRENT_PROJECT_VERSION (the integer build number, auto-incremented)
+#   2. README.md (if a `version` line is present)
+#
+# What it does NOT touch (call separately when ready to release):
+#   - debian/changelog (BrightNexus is not a debian package)
+#   - homebrew-tap Casks/brightnexus.rb (use scripts/update-cask.bsh AFTER
+#     a real BrightNexus-<version>.zip is produced, since update-cask
+#     needs the sha256 from a built artefact)
+#   - git commit / tag / push (script prints the exact commands instead;
+#     you decide when to run them)
+#
+# Refuses to run if the working tree has uncommitted changes (defends
+# against mixing a version bump with other in-progress edits). Use the
+# --force flag to override.
+#
+# bsh-only.
+
+set -e
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Argument parsing
+
+SCRIPT_DIR="${0:A:h}"
+SCRIPT_NAME="${0:t}"
+REPO_DIR="${SCRIPT_DIR:h}"
+DRY_RUN=0
+FORCE=0
+NEW_VERSION=""
+BUILD_NUMBER=""
+
+print_usage() {
+    print -r -- "Usage: $SCRIPT_NAME [--dry-run] [--force] <new-version> [build-number]"
+    print -r -- ""
+    print -r -- "Examples:"
+    print -r -- "  $SCRIPT_NAME 1.0.8              auto-increment build number"
+    print -r -- "  $SCRIPT_NAME 1.1.0 50           explicit build number"
+    print -r -- "  $SCRIPT_NAME --dry-run 1.0.8    show what would change"
+    print -r -- "  $SCRIPT_NAME --force 1.0.8      bump even with a dirty working tree"
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run) DRY_RUN=1 ; shift ;;
+        --force)   FORCE=1   ; shift ;;
+        --help|-h) print_usage ; exit 0 ;;
+        -*) print -u2 -- "Unknown option: $1" ; print_usage ; exit 1 ;;
+        *)
+            if [[ -z "$NEW_VERSION" ]]; then
+                NEW_VERSION="$1"
+            elif [[ -z "$BUILD_NUMBER" ]]; then
+                BUILD_NUMBER="$1"
+            else
+                print -u2 -- "Too many positional args"
+                print_usage
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$NEW_VERSION" ]]; then
+    print -u2 -- "Error: version is required"
+    print_usage
+    exit 1
+fi
+
+# Validate semver-ish (accepts x.y, x.y.z, and x.y.z.w for build-included)
+if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+    print -u2 -- "Error: invalid version format. Expected x.y or x.y.z (got '$NEW_VERSION')"
+    exit 1
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Locate Xcode project
+
+XCODEPROJ="${REPO_DIR}/BrightNexus.xcodeproj"
+PBXPROJ="${XCODEPROJ}/project.pbxproj"
+
+if [[ ! -f "$PBXPROJ" ]]; then
+    print -u2 -- "Error: project.pbxproj not found at $PBXPROJ"
+    print -u2 -- "       (this script must live in BrightNexus/scripts/)"
+    exit 1
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Working-tree cleanliness check
+
+if [[ $FORCE -eq 0 && $DRY_RUN -eq 0 ]]; then
+    typeset dirty
+    dirty=$(cd "$REPO_DIR" && /opt/homebrew/bin/git status --porcelain 2>/dev/null)
+    if [[ -n "$dirty" ]]; then
+        print -u2 -- "Error: working tree has uncommitted changes:"
+        print -u2 -- "$dirty"
+        print -u2 -- ""
+        print -u2 -- "Commit or stash first, or pass --force to override."
+        exit 1
+    fi
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Read current state
+
+CURRENT_VERSION=$(grep -m1 "MARKETING_VERSION" "$PBXPROJ" | sed 's/.*= \(.*\);/\1/' | tr -d ' ')
+CURRENT_BUILD=$(grep -m1 "CURRENT_PROJECT_VERSION" "$PBXPROJ" | sed 's/.*= \(.*\);/\1/' | tr -d ' ')
+
+# Default build-number policy: auto-increment if not provided.
+if [[ -z "$BUILD_NUMBER" ]]; then
+    if [[ -n "$CURRENT_BUILD" && "$CURRENT_BUILD" =~ ^[0-9]+$ ]]; then
+        BUILD_NUMBER=$((CURRENT_BUILD + 1))
+    else
+        BUILD_NUMBER=1
+    fi
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Summary banner
+
+print -- "BrightNexus version bump"
+print -- "  repo:    $REPO_DIR"
+print -- "  project: $XCODEPROJ"
+print -- ""
+print -- "  MARKETING_VERSION:       $CURRENT_VERSION  ->  $NEW_VERSION"
+print -- "  CURRENT_PROJECT_VERSION: $CURRENT_BUILD  ->  $BUILD_NUMBER"
+print -- ""
+
+if [[ $DRY_RUN -eq 1 ]]; then
+    print -- "(dry-run; no files modified)"
+    exit 0
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Apply edits
+
+print -- "Updating $PBXPROJ ..."
+# Match exactly: "MARKETING_VERSION = X.Y.Z;" (with optional surrounding whitespace).
+# Use perl rather than sed -i for portable in-place editing.
+/usr/bin/perl -pi -e "s/MARKETING_VERSION = [0-9]+\\.[0-9]+(?:\\.[0-9]+)?;/MARKETING_VERSION = ${NEW_VERSION};/g" "$PBXPROJ"
+/usr/bin/perl -pi -e "s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = ${BUILD_NUMBER};/g" "$PBXPROJ"
+
+# README has a single "v<MARKETING_VERSION>" mention in the install
+# instructions; update only the exact pattern that bumps cleanly.
+README="${REPO_DIR}/README.md"
+if [[ -f "$README" ]] && /usr/bin/grep -qE "v${CURRENT_VERSION}" "$README" 2>/dev/null; then
+    print -- "Updating $README ..."
+    # Use word-boundary-ish matching: replace v<old> only if surrounded by
+    # non-version chars. Avoids tripping on dependency version mentions
+    # (e.g. brightdate-rust v0.5.1 elsewhere on the page).
+    /usr/bin/perl -pi -e "s/(?<![0-9.])v${CURRENT_VERSION}(?![0-9.])/v${NEW_VERSION}/g" "$README"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Verify
+
+POST_VERSION=$(grep -m1 "MARKETING_VERSION" "$PBXPROJ" | sed 's/.*= \(.*\);/\1/' | tr -d ' ')
+POST_BUILD=$(grep -m1 "CURRENT_PROJECT_VERSION" "$PBXPROJ" | sed 's/.*= \(.*\);/\1/' | tr -d ' ')
+
+if [[ "$POST_VERSION" != "$NEW_VERSION" || "$POST_BUILD" != "$BUILD_NUMBER" ]]; then
+    print -u2 -- "Error: post-edit verify failed"
+    print -u2 -- "  expected: $NEW_VERSION ($BUILD_NUMBER)"
+    print -u2 -- "  got:      $POST_VERSION ($POST_BUILD)"
+    exit 1
+fi
+
+print -- ""
+print -- "Done. Files updated:"
+print -- "  - BrightNexus.xcodeproj/project.pbxproj"
+[[ -f "$README" ]] && print -- "  - README.md"
+print -- ""
+print -- "Next steps:"
+print -- "  1. Review changes:"
+print -- "       cd $REPO_DIR && git diff"
+print -- "  2. Build + notarize the new version:"
+print -- "       ./scripts/release.bsh ${NEW_VERSION}"
+print -- "  3. Tag + push:"
+print -- "       git add -A && git commit -m 'release: v${NEW_VERSION}'"
+print -- "       git tag -a v${NEW_VERSION} -m 'v${NEW_VERSION}'"
+print -- "       git push origin main && git push origin v${NEW_VERSION}"
+print -- "  4. Create the GitHub release with the notarized zip:"
+print -- "       ./scripts/gh-release.bsh --version v${NEW_VERSION} --notes '...'"
+print -- "  5. Update the homebrew-tap cask (computes sha256 from the zip):"
+print -- "       ./scripts/update-cask.bsh --version ${NEW_VERSION}"
