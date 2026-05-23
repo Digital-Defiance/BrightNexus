@@ -156,6 +156,11 @@ private func pointInPolygon(point: Wgs84LatLon, polygon: [Wgs84LatLon]) -> Bool 
 
 /// Holds the user's zone definitions and answers "what zone am I in?".
 final class LinkZoneEngine {
+    /// Posted on the main queue after every mutation. The Zones Settings
+    /// tab subscribes to this for live refresh, same convention as
+    /// LinkAcl.didChangeNotification.
+    static let didChangeNotification = Notification.Name("LinkZoneEngine.didChange")
+
     private var zones: [ZoneDefinition] = []
 
     init(zones: [ZoneDefinition] = []) {
@@ -164,12 +169,33 @@ final class LinkZoneEngine {
 
     func setZones(_ zones: [ZoneDefinition]) {
         self.zones = zones
+        Self.publishChange()
     }
 
     func list() -> [ZoneDefinition] { zones }
 
     func byId(_ id: String) -> ZoneDefinition? {
         return zones.first(where: { $0.id == id })
+    }
+
+    /// Add a new zone or replace an existing one (matched by id).
+    /// Re-saves; publishes change.
+    func upsert(_ zone: ZoneDefinition) {
+        if let idx = zones.firstIndex(where: { $0.id == zone.id }) {
+            zones[idx] = zone
+        } else {
+            zones.append(zone)
+        }
+        Self.publishChange()
+    }
+
+    /// Remove a zone by id. No-op if not found. Re-saves; publishes change.
+    func remove(id: String) {
+        let before = zones.count
+        zones.removeAll(where: { $0.id == id })
+        if zones.count != before {
+            Self.publishChange()
+        }
     }
 
     /// Highest-priority matching zone wins; ties broken by id lex order.
@@ -191,9 +217,24 @@ final class LinkZoneEngine {
 
     // MARK: - Persistence (JSON, currently unsigned)
 
+    /// Atomically write `geo-zones.json` (mode 0600). The on-disk format
+    /// is the same JSON shape `loadFromDisk` understands.
+    /// TODO Wave 4i+: sign with BridgeIdentity.
+    func saveToDisk() throws {
+        let url = BrightNexusPaths.geoZones
+        let arr: [[String: Any]] = zones.map { encodeZoneDefinition($0) }
+        let data = try JSONSerialization.data(
+            withJSONObject: arr,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        let tmpURL = url.appendingPathExtension("tmp")
+        try data.write(to: tmpURL, options: [.atomic])
+        _ = chmod(tmpURL.path, 0o600)
+        try FileManager.default.replaceItemAt(url, withItemAt: tmpURL)
+    }
+
     /// Load zones from `~/.brightchain/brightnexus/geo-zones.json`. If the
     /// file is missing or unreadable, returns an empty engine.
-    /// TODO Wave 4i: sign geo-zones.json with BridgeIdentity.
     static func loadFromDisk() -> LinkZoneEngine {
         let url = BrightNexusPaths.geoZones
         let fm = FileManager.default
@@ -208,6 +249,18 @@ final class LinkZoneEngine {
             zones.append(z)
         }
         return LinkZoneEngine(zones: zones)
+    }
+
+    // MARK: - Helpers
+
+    private static func publishChange() {
+        if Thread.isMainThread {
+            NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
+        } else {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
+            }
+        }
     }
 }
 
@@ -271,4 +324,54 @@ private func latLonFromDict(_ d: [String: Any]) -> Wgs84LatLon? {
     guard let lat = d["lat"] as? Double, let lon = d["lon"] as? Double else { return nil }
     let alt = d["alt_m"] as? Double
     return Wgs84LatLon(lat: lat, lon: lon, alt_m: alt)
+}
+
+// MARK: - JSON encode (mirror of decode at the top of this file)
+
+private func encodeZoneDefinition(_ z: ZoneDefinition) -> [String: Any] {
+    var out: [String: Any] = [
+        "id":          z.id,
+        "displayName": z.displayName,
+        "shape":       encodeShape(z.shape),
+    ]
+    if let p = z.priority { out["priority"] = p }
+    return out
+}
+
+private func encodeShape(_ s: ZoneShape) -> [String: Any] {
+    switch s {
+    case .circle2d(let center, let radiusM):
+        return [
+            "type":     "circle_2d",
+            "center":   ["wgs84": encodeLatLon(center)],
+            "radius_m": radiusM,
+        ]
+    case .cylinder3d(let center, let radiusM, let aMin, let aMax):
+        return [
+            "type":            "cylinder_3d",
+            "center":          ["wgs84": encodeLatLon(center)],
+            "radius_m":        radiusM,
+            "altitude_min_m":  aMin,
+            "altitude_max_m":  aMax,
+        ]
+    case .polygon2d(let points):
+        return [
+            "type":          "polygon_2d",
+            "points_wgs84":  points.map { encodeLatLon($0) },
+        ]
+    case .bbox2d(let latMin, let latMax, let lonMin, let lonMax):
+        return [
+            "type":     "bbox_2d",
+            "lat_min":  latMin,
+            "lat_max":  latMax,
+            "lon_min":  lonMin,
+            "lon_max":  lonMax,
+        ]
+    }
+}
+
+private func encodeLatLon(_ p: Wgs84LatLon) -> [String: Any] {
+    var d: [String: Any] = ["lat": p.lat, "lon": p.lon]
+    if let alt = p.alt_m { d["alt_m"] = alt }
+    return d
 }

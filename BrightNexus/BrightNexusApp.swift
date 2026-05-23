@@ -83,8 +83,8 @@ class SettingsWindowController {
         let hostingController = NSHostingController(rootView: settingsView)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 450, height: 340),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 560),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
@@ -93,6 +93,7 @@ class SettingsWindowController {
         window.contentViewController = hostingController
         window.center()
         window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 560, height: 480)
 
         settingsWindow = window
         windowController = NSWindowController(window: window)
@@ -601,32 +602,50 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView()
                 .tabItem {
-                    Label("General", systemImage: "gear")
+                    Image(systemName: "gear")
                 }
 
             BrightLinkSettingsView()
                 .tabItem {
-                    Label("BrightLink", systemImage: "key.viewfinder")
+                    Image(systemName: "key.viewfinder")
                 }
 
             GeoEngineSettingsView()
                 .tabItem {
-                    Label("Geo Engine", systemImage: "location.viewfinder")
+                    Image(systemName: "location.viewfinder")
                 }
 
             AllowlistSettingsView()
                 .tabItem {
-                    Label("Allowlist", systemImage: "list.bullet.rectangle")
+                    Image(systemName: "list.bullet.rectangle")
+                }
+
+            ZonesSettingsView()
+                .tabItem {
+                    Image(systemName: "map")
+                }
+
+            CoordinatesSettingsView()
+                .tabItem {
+                    Image(systemName: "compass.drawing")
                 }
 
             AboutView()
                 .tabItem {
-                    Label("About", systemImage: "info.circle")
+                    Image(systemName: "info.circle")
                 }
         }
-        // The Geo Engine and Allowlist tabs need more horizontal room than
-        // the original 450×380; bump to 560×460.
-        .frame(width: 560, height: 460)
+        // Icon-only tabs let us keep all seven visible without an
+        // overflow chevron, even at a narrower window. Hover tooltips
+        // (TabView reads the .help() modifier on tabItem in macOS 14+)
+        // and per-tab section headings inside each view restore the
+        // discoverability the labels gave us.
+        //
+        // Use min/ideal frame rather than a fixed (width:height:) frame
+        // so the host NSWindow's `.resizable` styleMask actually takes
+        // effect — a fixed `.frame(width:, height:)` clamps the window
+        // to that size and overrides the window-level resize flag.
+        .frame(minWidth: 560, idealWidth: 720, minHeight: 480, idealHeight: 560)
     }
 }
 
