@@ -167,6 +167,7 @@ private struct ZoneTrackerState {
 /// public `async` methods per LINK_GEO_* command.
 final class LinkGeoEngine {
     let acl: LinkAcl
+    let aclSession: LinkAclSession
     let zones: LinkZoneEngine
     let prompt: LinkAclPromptCoordinator
     let source: GeoSourceProtocol
@@ -177,9 +178,11 @@ final class LinkGeoEngine {
     private var zoneTracker = ZoneTrackerState(zoneId: nil, enteredAtBd: 0)
     private var zoneTransitionHandlers: [(String?, String?, Double) -> Void] = []
     private var sourceUnsubscribe: (() -> Void)?
+    private var sessionGcTimer: Timer?
 
     init(
         acl: LinkAcl,
+        aclSession: LinkAclSession,
         zones: LinkZoneEngine,
         prompt: LinkAclPromptCoordinator,
         source: GeoSourceProtocol?,
@@ -188,6 +191,7 @@ final class LinkGeoEngine {
         promptTimeoutSeconds: Int = 30
     ) {
         self.acl = acl
+        self.aclSession = aclSession
         self.zones = zones
         self.prompt = prompt
         self.source = source ?? NullGeoSource()
@@ -200,10 +204,26 @@ final class LinkGeoEngine {
         self.sourceUnsubscribe = self.source.subscribe { [weak self] _ in
             self?.evaluateZoneTransition()
         }
+
+        // Periodic session-ACL GC: every 30 seconds, prune entries
+        // whose sshd_pid is no longer alive (RFC §7.3). The timer
+        // fires on the main run loop because LinkAclSession publishes
+        // didChangeNotification on the main queue.
+        let timer = Timer(timeInterval: 30.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            let removed = self.aclSession.gcDeadSessions()
+            if removed > 0 {
+                NSLog("[BrightNexus] session ACL GC: removed %d entries (sshd dead)", removed)
+                try? self.aclSession.saveToDisk()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.sessionGcTimer = timer
     }
 
     deinit {
         sourceUnsubscribe?()
+        sessionGcTimer?.invalidate()
     }
 
     // MARK: - Read-only adapters used by the Settings UI (Wave 4h).
@@ -438,6 +458,41 @@ final class LinkGeoEngine {
         extra: [String: Any]
     ) async -> GeoResult<Bool> {
         let now = nowBd()
+
+        // RFC §7.4 step 1: session ACL first. A session-bound grant
+        // takes precedence over the durable ACL because it's the one
+        // the user explicitly chose at prompt time inside this SSH
+        // session. Only consulted when the peer is in an SSH session.
+        if let sessionEntry = aclSession.lookup(
+            attestation: attestation, scope: scope, nowBd: now
+        ) {
+            let policy = sessionEntry.scopes[scope] ?? .prompt
+            switch policy {
+            case .always:
+                aclSession.recordUse(entryId: sessionEntry.id, nowBd: now)
+                try? aclSession.saveToDisk()
+                audit.recordGeoEvent(GeoAuditEntry(
+                    brightdate: now, command: command, scope: scope,
+                    decision: .allowedByAcl, policyAtDecision: "session",
+                    attestation: attestation, responseSummary: extra
+                ))
+                return .ok(true)
+            case .deny:
+                audit.recordGeoEvent(GeoAuditEntry(
+                    brightdate: now, command: command, scope: scope,
+                    decision: .deniedByAcl, policyAtDecision: "session-deny",
+                    attestation: attestation, responseSummary: extra
+                ))
+                return .err(LinkGeoErrors.SCOPE_DENIED_BY_POLICY)
+            case .prompt:
+                // Fall through to durable ACL lookup; if THAT also says
+                // prompt we'll fire the modal. The session entry exists
+                // but doesn't decide this scope.
+                break
+            }
+        }
+
+        // RFC §7.4 step 2: durable ACL.
         let lookup = acl.lookup(attestation: attestation, scope: scope, nowBd: now)
 
         switch lookup {
@@ -518,13 +573,17 @@ final class LinkGeoEngine {
             return .ok(true)
 
         case .allowSession(let sessionId):
-            let entry = upsertEntryForScope(
+            // RFC §7.3: allow_session writes to geo-acl-session.json,
+            // NOT geo-acl.json. The grant lives only as long as the
+            // sshd_pid encoded in the session id stays alive (and at
+            // most until the bridge restarts).
+            let entry = upsertSessionEntryForScope(
                 attestation: attestation, scope: scope,
-                policy: .always, existing: existing, nowBd: now,
+                policy: .always, nowBd: now,
                 sshSessionId: sessionId
             )
-            acl.recordUse(entryId: entry.id, nowBd: now)
-            try? acl.saveToDisk()
+            aclSession.recordUse(entryId: entry.id, nowBd: now)
+            try? aclSession.saveToDisk()
             var summary = extra; summary["sshSessionId"] = sessionId
             audit.recordGeoEvent(GeoAuditEntry(
                 brightdate: now, command: command, scope: scope,
@@ -635,6 +694,75 @@ final class LinkGeoEngine {
             sshSessionId: sshSessionId ?? existing?.sshSessionId
         )
         acl.upsert(entry)
+        return entry
+    }
+
+    /// Session-ACL variant of upsertEntryForScope. Writes to
+    /// geo-acl-session.json (RFC §7.3) instead of the durable
+    /// geo-acl.json. Same §7.1 cascade semantics. Always finds-or-
+    /// creates a fresh entry keyed on (attestation, sshSessionId);
+    /// never reuses entries from the durable ACL.
+    private func upsertSessionEntryForScope(
+        attestation: PeerAttestation,
+        scope: LinkGeoScope,
+        policy: LinkGeoPolicy,
+        nowBd: Double,
+        sshSessionId: String
+    ) -> LinkAclSessionEntry {
+        // Find an existing session entry for this caller in this session,
+        // if any. Same identity tuple match as the durable lookup.
+        let existing: LinkAclSessionEntry? = aclSession.list().first { e in
+            e.sshSessionId == sshSessionId
+                && e.attestationClass == attestation.attestationClass
+                && e.issuerId == attestation.issuerId
+                && e.subjectId == attestation.subjectId
+        }
+
+        let id = existing?.id ?? generateAclEntryId(nowBd: nowBd)
+        var scopes = existing?.scopes ?? linkAclDefaultPromptScopes()
+
+        // Same RFC §7.1 cascade as durable upsert.
+        let unsignedCapRank = LINK_GEO_UNSIGNED_MAX_SCOPE.rank
+        let isUnsigned = attestation.attestationClass == .unsigned
+        switch policy {
+        case .always:
+            for s in LinkGeoScope.allCases where s.rank <= scope.rank {
+                if isUnsigned && s.rank > unsignedCapRank { continue }
+                if scopes[s] == .deny { continue }
+                scopes[s] = .always
+            }
+        case .deny:
+            for s in LinkGeoScope.allCases where s.rank >= scope.rank {
+                scopes[s] = .deny
+            }
+        case .prompt:
+            scopes[scope] = .prompt
+        }
+
+        let fallbackHash: String?
+        if attestation.attestationClass == .unsigned, let h = attestation.executableHash {
+            fallbackHash = "sha256:" + h.map { String(format: "%02x", $0) }.joined()
+        } else {
+            fallbackHash = nil
+        }
+
+        let entry = LinkAclSessionEntry(
+            id: id,
+            displayName: existing?.displayName ?? defaultDisplayName(attestation),
+            attestationClass: attestation.attestationClass,
+            issuerId: attestation.issuerId,
+            subjectId: attestation.subjectId,
+            expectedPath: attestation.executablePath,
+            fallbackHash: fallbackHash,
+            scopes: scopes,
+            addedAtBd: existing?.addedAtBd ?? nowBd,
+            lastUsedBd: nowBd,
+            sshSessionId: sshSessionId,
+            sshdPid: attestation.sshSession?.sshdPid ?? 0,
+            sourceUser: attestation.sshSession?.sourceUser,
+            sourceHost: attestation.sshSession?.sourceHost
+        )
+        aclSession.upsert(entry)
         return entry
     }
 

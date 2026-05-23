@@ -790,12 +790,13 @@ extension BridgeProtocolHandler {
         if tampered {
             NSLog("[BrightNexus] WARN: geo-acl.json tamper detected on boot; reverted entries to prompt")
         }
+        let aclSession = LinkAclSession.loadFromDisk()
         let zones = LinkZoneEngine.loadFromDisk()
         let prompt: LinkAclPromptCoordinator = NSAlertPromptCoordinator()
         let source: GeoSourceProtocol = CoreLocationGeoSource()
         let audit: GeoAuditSink = MainActorAuditLog()
         return LinkGeoEngine(
-            acl: acl, zones: zones, prompt: prompt,
+            acl: acl, aclSession: aclSession, zones: zones, prompt: prompt,
             source: source, audit: audit,
             nowBd: { currentBrightDate() }
         )

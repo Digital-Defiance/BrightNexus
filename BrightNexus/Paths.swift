@@ -28,6 +28,7 @@ enum BrightNexusPaths {
     static let totpConfigFilename = "totp-config.json"
     static let geoAclFilename = "geo-acl.json"
     static let geoAclSigFilename = "geo-acl.sig"
+    static let geoAclSessionFilename = "geo-acl-session.json"
     static let geoZonesFilename = "geo-zones.json"
 
     // MARK: Resolved URLs
@@ -71,6 +72,14 @@ enum BrightNexusPaths {
     /// `~/.brightchain/brightnexus/geo-acl.sig`
     static var geoAclSig: URL {
         toolDir.appendingPathComponent(geoAclSigFilename, isDirectory: false)
+    }
+
+    /// `~/.brightchain/brightnexus/geo-acl-session.json`
+    /// Transient SSH-session-bound ACL entries (RFC §7.3). Wiped on
+    /// bridge restart; entries also age out when their `sshd_pid` is
+    /// no longer alive.
+    static var geoAclSession: URL {
+        toolDir.appendingPathComponent(geoAclSessionFilename, isDirectory: false)
     }
 
     /// `~/.brightchain/brightnexus/geo-zones.json`

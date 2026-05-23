@@ -106,15 +106,18 @@ struct GeoEngineSettingsView: View {
 struct AllowlistSettingsView: View {
 
     @State private var entries: [LinkAclEntry] = []
+    @State private var sessionEntries: [LinkAclSessionEntry] = []
     @State private var bridgeKeyId: String = "—"
     @State private var pendingRevoke: LinkAclEntry? = nil
+    @State private var pendingSessionRevoke: LinkAclSessionEntry? = nil
     @State private var showRevokeConfirm: Bool = false
+    @State private var showSessionRevokeConfirm: Bool = false
     @State private var fileWatcher: DispatchSourceFileSystemObject? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Allowlist (\(entries.count) entries)")
+                Text("Allowlist (\(entries.count) durable, \(sessionEntries.count) session)")
                     .font(.headline)
                 Spacer()
                 Text(bridgeKeyId)
@@ -127,7 +130,7 @@ struct AllowlistSettingsView: View {
 
             Divider()
 
-            if entries.isEmpty {
+            if entries.isEmpty && sessionEntries.isEmpty {
                 Spacer()
                 VStack(spacing: 6) {
                     Image(systemName: "checkmark.shield")
@@ -145,13 +148,28 @@ struct AllowlistSettingsView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
-                        ForEach(entries, id: \.id) { entry in
-                            AllowlistEntryRow(
-                                entry: entry,
-                                onReprompt: { reprompt(entry) },
-                                onRevoke:   { confirmRevoke(entry) }
-                            )
-                            .padding(.horizontal)
+                        if !entries.isEmpty {
+                            sectionHeader("Durable", systemImage: "lock.shield",
+                                          subtitle: "Persists across bridge restarts")
+                            ForEach(entries, id: \.id) { entry in
+                                AllowlistEntryRow(
+                                    entry: entry,
+                                    onReprompt: { reprompt(entry) },
+                                    onRevoke:   { confirmRevoke(entry) }
+                                )
+                                .padding(.horizontal)
+                            }
+                        }
+                        if !sessionEntries.isEmpty {
+                            sectionHeader("Session", systemImage: "terminal",
+                                          subtitle: "Tied to specific SSH sessions; removed when sshd exits or the bridge restarts")
+                            ForEach(sessionEntries, id: \.id) { entry in
+                                SessionEntryRow(
+                                    entry: entry,
+                                    onRevoke: { confirmSessionRevoke(entry) }
+                                )
+                                .padding(.horizontal)
+                            }
                         }
                     }
                     .padding(.vertical, 8)
@@ -176,6 +194,9 @@ struct AllowlistSettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: LinkAcl.didChangeNotification)) { _ in
             reload()
         }
+        .onReceive(NotificationCenter.default.publisher(for: LinkAclSession.didChangeNotification)) { _ in
+            reload()
+        }
         .alert(
             "Revoke this caller?",
             isPresented: $showRevokeConfirm,
@@ -186,12 +207,55 @@ struct AllowlistSettingsView: View {
         } message: { entry in
             Text("\(entry.displayName) will be removed from the allowlist. The next time it asks for geo access, you'll get a fresh prompt.")
         }
+        .alert(
+            "Revoke this session grant?",
+            isPresented: $showSessionRevokeConfirm,
+            presenting: pendingSessionRevoke
+        ) { entry in
+            Button("Revoke", role: .destructive) { revokeSession(entry) }
+            Button("Cancel", role: .cancel) { pendingSessionRevoke = nil }
+        } message: { entry in
+            Text("\(entry.displayName) will be removed from the session allowlist. The next time it asks for geo access in this SSH session, you'll get a fresh prompt.")
+        }
+    }
+
+    private func sectionHeader(_ title: String, systemImage: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(title.uppercased())
+                    .font(.caption.bold())
+                    .foregroundColor(.secondary)
+            }
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal)
+        .padding(.top, 4)
     }
 
     private func reload() {
         let engine = BridgeProtocolHandler.sharedGeoEngine
         entries = engine.acl.list().sorted { $0.displayName.lowercased() < $1.displayName.lowercased() }
+        sessionEntries = engine.aclSession.list().sorted {
+            $0.displayName.lowercased() < $1.displayName.lowercased()
+        }
         bridgeKeyId = engine.acl.bridgeKeyId()
+    }
+
+    private func confirmSessionRevoke(_ entry: LinkAclSessionEntry) {
+        pendingSessionRevoke = entry
+        showSessionRevokeConfirm = true
+    }
+
+    private func revokeSession(_ entry: LinkAclSessionEntry) {
+        let engine = BridgeProtocolHandler.sharedGeoEngine
+        engine.aclSession.remove(id: entry.id)
+        try? engine.aclSession.saveToDisk()
+        pendingSessionRevoke = nil
     }
 
     private func reprompt(_ entry: LinkAclEntry) {
@@ -345,6 +409,100 @@ private struct AllowlistEntryRow: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(.background.tertiary)
+            .clipShape(Capsule())
+    }
+
+    private func scopeChip(_ scope: LinkGeoScope, policy: LinkGeoPolicy) -> some View {
+        let (label, color): (String, Color) = {
+            switch policy {
+            case .always: return ("✓", .green)
+            case .deny:   return ("✕", .red)
+            case .prompt: return ("?", .secondary)
+            }
+        }()
+        return HStack(spacing: 3) {
+            Text(scope.rawValue)
+                .font(.caption2)
+            Text(label)
+                .font(.caption2.bold())
+                .foregroundColor(color)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(.background.tertiary)
+        .clipShape(Capsule())
+    }
+}
+
+// MARK: - Session-ACL row
+
+@MainActor
+private struct SessionEntryRow: View {
+
+    let entry: LinkAclSessionEntry
+    let onRevoke: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Image(systemName: "terminal")
+                    .foregroundColor(.purple)
+                Text(entry.displayName)
+                    .font(.headline)
+                Spacer()
+                sessionBadge
+            }
+
+            if let path = entry.expectedPath {
+                Text(path)
+                    .font(.caption.monospaced())
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            HStack(spacing: 8) {
+                ForEach(LinkGeoScope.allCases, id: \.self) { scope in
+                    scopeChip(scope, policy: entry.scopes[scope] ?? .prompt)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Label {
+                    Text("Session: \(entry.sshSessionId)")
+                } icon: {
+                    Image(systemName: "link")
+                }
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                if let user = entry.sourceUser, let host = entry.sourceHost {
+                    Label("\(user)@\(host)", systemImage: "person.crop.circle")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                Label("sshd pid: \(entry.sshdPid)", systemImage: "cpu")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                Spacer()
+                Button("Revoke", role: .destructive) { onRevoke() }
+            }
+            .padding(.top, 2)
+        }
+        .padding(10)
+        .background(.background.secondary)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var sessionBadge: some View {
+        Text("SESSION")
+            .font(.caption2.bold().monospaced())
+            .foregroundColor(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.purple)
             .clipShape(Capsule())
     }
 
