@@ -4,11 +4,11 @@ parent: "Papers"
 nav_order: 19
 ---
 
-# BrightLink Protocol v1 — A Specification for Hardware-Anchored Ephemeral-Credential Delivery
+# BrightLink Protocol — A Specification for Hardware-Anchored Ephemeral-Credential Delivery
 
 **Authors:** Jessica Mulein
 **Status:** Proposal / Draft Standard, replication-grade
-**Version:** 1.1 (BrightLink v1 — geo, push, and cross-platform attestation)
+**Version:** 1.1 (BrightLink — geo, push, and cross-platform attestation)
 **Date:** May 2026
 **Built on:** [Enclave Bridge Protocol (EBP/1)](enclave-bridge-protocol). Coordinates expressed in [BrightSpace](bright-space-standard) and [BrightDate](brightdate-specification) units.
 

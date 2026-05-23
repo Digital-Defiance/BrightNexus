@@ -1,7 +1,7 @@
 // BrightLinkPayload.swift
 // BrightNexus
 //
-// Decoded plaintext shape of a BrightLink v1 payload (RFC §5).
+// Decoded plaintext shape of a BrightLink payload (RFC §5).
 //
 // The entire payload — including the `type` and `context` schema
 // identifiers — is delivered to the bridge inside the encrypted LINK_DELIVER

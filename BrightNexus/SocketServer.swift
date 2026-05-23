@@ -1,7 +1,7 @@
 // SocketServer.swift
 // BrightNexus
 //
-// Unix domain socket server for the BrightNexus protocol surface (EBP/1 + BrightLink v1).
+// Unix domain socket server for the BrightNexus protocol surface (EBP/1 + BrightLink).
 //
 // Single canonical socket: ~/.brightchain/brightnexus/brightnexus.sock
 //

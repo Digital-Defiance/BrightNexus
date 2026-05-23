@@ -3,7 +3,7 @@
 //  BrightNexus
 //
 //  Originally created as Enclave Bridge by Jessica Mulein on 1/24/26.
-//  Renamed and re-anchored on the BrightLink v1 protocol on 2026-05-21.
+//  Renamed and re-anchored on the BrightLink protocol on 2026-05-21.
 //
 //  Architectural notes — see docs/rfc-brightlink.md:
 //    * Bundle ID: org.digitaldefiance.brightchain.BrightNexus

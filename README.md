@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <a href="https://brightnexus.brightdate.org">brightnexus.brightdate.org</a> · <a href="ENCLAVE_BRIDGE_SPEC.md">EBP/1 spec</a> · <a href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md">BrightLink v1 RFC</a>
+  <a href="https://brightnexus.brightdate.org">brightnexus.brightdate.org</a> · <a href="ENCLAVE_BRIDGE_SPEC.md">EBP/1 spec</a> · <a href="https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md">BrightLink RFC</a>
 </p>
 
 > **Renamed from Enclave Bridge.** This project was previously known as **Enclave Bridge**. It still implements the [Enclave Bridge Protocol (EBP/1)](https://github.brightchain.org/docs/papers/enclave-bridge-protocol/) — that wire surface is unchanged — and now also acts as the **BrightLink agent** under the [BrightLink Protocol specification](https://github.brightchain.org/docs/papers/brightlink/). See the [migration notes](#migration-from-enclave-bridge) below.
@@ -33,7 +33,7 @@
 **BrightNexus** is a macOS status-bar application (SwiftUI, Apple Silicon) that:
 
 1. Bridges Node.js applications to Apple's **Secure Enclave** (P-256 hardware signing) and to a host-resident **secp256k1** ECIES key, exposed over a Unix domain socket via the Enclave Bridge Protocol (EBP/1). This is the original Enclave Bridge functionality, preserved bit-for-bit.
-2. Hosts the **BrightLink v1** agent surface defined in the [BrightLink Protocol v1 RFC](https://github.brightchain.org/docs/papers/brightlink/), receiving `LINK_DELIVER` Shell→Agent traffic from `bsh` (or any v1-aware CLI tool) and surfacing the resulting credentials in a menu-bar dropdown and a Dashboard "Credentials" view.
+2. Hosts the **BrightLink** agent surface defined in the [BrightLink Protocol v1 RFC](https://github.brightchain.org/docs/papers/brightlink/), receiving `LINK_DELIVER` Shell→Agent traffic from `bsh` (or any v1-aware CLI tool) and surfacing the resulting credentials in a menu-bar dropdown and a Dashboard "Credentials" view.
 
 BrightNexus is part of the [BrightChain](https://github.brightchain.org) project. Its bundle ID is `org.digitaldefiance.brightchain.BrightNexus`.
 
@@ -67,7 +67,7 @@ BrightNexus is part of the [BrightChain](https://github.brightchain.org) project
 │  bsh shell or any    │  ~/.brightchain/brightnexus/ │  BrightNexus (SwiftUI)     │
 │  v1-aware CLI tool   │  brightnexus.sock            │                            │
 │                      │                              │  BridgeProtocolHandler     │
-│ ┌──────────────────┐ │  EBP/1 + BrightLink v1 JSON  │  ├─ ECIES (secp256k1)      │
+│ ┌──────────────────┐ │  EBP/1 + BrightLink JSON.    │  ├─ ECIES (secp256k1)      │
 │ │ bsh-inject       │ │  ──────────────────────────► │  ├─ SecureEnclaveKeyMgr    │
 │ │                  │ │                              │  ├─ LINK_REGISTER (§4.5)   │
 │ └──────────────────┘ │                              │  └─ LINK_DELIVER  (§4.6) ─┐│
@@ -107,7 +107,7 @@ In Xcode: select the **BrightNexus** scheme, then build (⌘B) or run (⌘R).
 npm install @digitaldefiance/enclave-bridge-client
 ```
 
-The TypeScript client speaks both EBP/1 and BrightLink v1.
+The TypeScript client speaks both EBP/1 and BrightLink.
 
 ### Sanity-checking the socket
 
@@ -127,7 +127,7 @@ printf '%s' '{"cmd":"VERSION"}' \
 # {"app":"brightnexus","brightlinkProtocolVersion":1,...}
 ```
 
-A successful `VERSION` reply confirms BrightLink v1 support.
+A successful `VERSION` reply confirms BrightLink support.
 
 ## Paths and configuration
 
@@ -141,7 +141,7 @@ BrightNexus stores its state under a single per-user directory tree, mode `0700`
 ~/.brightchain/brightnexus/totp-config.json      TOTP secrets (mode 0600)
 ```
 
-BrightLink v1 is greenfield — there are no legacy paths to migrate from and no compatibility sockets. If you previously ran the original "Enclave Bridge" app, its state files at `~/.enclave/` are not consulted; you can delete them at your convenience.
+BrightLink is greenfield — there are no legacy paths to migrate from and no compatibility sockets. If you previously ran the original "Enclave Bridge" app, its state files at `~/.enclave/` are not consulted; you can delete them at your convenience.
 
 ### Discovery order for clients
 
@@ -173,7 +173,7 @@ There are no further fallbacks. A v1-aware client that finds neither path treats
 
 Full specification: [Enclave Bridge Protocol (EBP/1)](ENCLAVE_BRIDGE_SPEC.md).
 
-### BrightLink v1
+### BrightLink
 
 The BrightLink surface implements two commands today and reserves the rest. v1-aware clients can detect the reserved-but-not-yet-shipped commands by their stable `"<COMMAND> not implemented in this build"` error string, distinguishing a v1 BrightNexus from an older EBP/1-only bridge that returns `"Unknown command"`.
 
@@ -207,7 +207,7 @@ BrightNexus/
 │   ├── ContentView.swift              Main UI (Dashboard, Credentials, Connections, Keys)
 │   ├── AppState.swift                 Observable state (incl. published `credentials`)
 │   ├── SocketServer.swift             Unix-socket server (single canonical socket)
-│   ├── BridgeProtocolHandler.swift    EBP/1 + BrightLink v1 dispatch (REGISTER, DELIVER)
+│   ├── BridgeProtocolHandler.swift    EBP/1 + BrightLink dispatch (REGISTER, DELIVER)
 │   ├── BrightLinkSession.swift        Bilateral HKDF + 238-byte canonical transcript
 │   ├── BrightLinkPayload.swift        §5 payload schemas decoder
 │   ├── DeliverRateLimiter.swift       §4.4 failure-only rate limiter
@@ -234,7 +234,7 @@ No third-party Node packages live in this repo. The Node client lives at [`@digi
 
 ## Migration from Enclave Bridge
 
-BrightLink v1 is greenfield — there's no migration path because there were no users on a previous version. If you have an old "Enclave Bridge" app installed, the cleanest move is:
+BrightLink is greenfield — there's no migration path because there were no users on a previous version. If you have an old "Enclave Bridge" app installed, the cleanest move is:
 
 1. **Quit and uninstall the old app.** Drag it out of `/Applications` and to the Trash.
 2. **Delete `~/.enclave/`** if it exists. Nothing in v1 reads from there.
@@ -250,7 +250,7 @@ The on-disk key file format is the same as the old Enclave Bridge implementation
 - **Per-message ephemeral keys** for ECIES; forward secrecy is provided.
 - **Optional TOTP 2FA** for `EXPORT_KEY`.
 
-For the BrightLink v1 threat model see [RFC §8](https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md#8-security-considerations).
+For the BrightLink threat model see [RFC §8](https://github.com/Digital-Defiance/bsh/blob/main/docs/rfc-brightlink.md#8-security-considerations).
 
 ## Troubleshooting
 

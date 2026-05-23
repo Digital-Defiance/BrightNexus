@@ -1,7 +1,7 @@
 // BrightLinkSession.swift
 // BrightNexus
 //
-// BrightLink v1 session machinery (RFC §4.5).
+// BrightLink session machinery (RFC §4.5).
 //
 // This file is the Swift counterpart of the test-harness's `mock-brightnexus`
 // BrightLink surface. Every constant, byte order, and field offset here is taken

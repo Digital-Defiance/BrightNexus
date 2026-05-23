@@ -2,7 +2,7 @@
 // BrightNexus
 //
 // EBP/1 command dispatch (HEARTBEAT, GET_PUBLIC_KEY, ENCLAVE_DECRYPT, …) plus
-// the BrightLink v1 command surface (LINK_REGISTER, LINK_DELIVER, LINK_PUSH,
+// the BrightLink command surface (LINK_REGISTER, LINK_DELIVER, LINK_PUSH,
 // LINK_GEO_*, LINK_AUDIT_EMIT). LINK_REGISTER and LINK_DELIVER are implemented;
 // the remainder are reserved stubs that return "not implemented in this build"
 // so v1-aware clients can detect a BrightLink-aware bridge that hasn't shipped
@@ -225,10 +225,10 @@ class BridgeProtocolHandler {
             // Reserved by EBP/1 §4.12.
             return BridgeProtocolHandler.errorResponse("ENCLAVE_ROTATE_KEY not supported on this platform")
 
-        // MARK: - BrightLink v1 command surface (RFC §4.5–4.7, §8)
+        // MARK: - BrightLink command surface (RFC §4.5–4.7, §8)
         //
         // LINK_REGISTER and LINK_DELIVER are implemented. The remainder are reserved
-        // stubs so a v1-aware client can detect it is talking to a BrightLink-aware
+        // stubs so a BrightLink-aware client can detect it is talking to a BrightLink-aware
         // BrightNexus that hasn't shipped them yet. The error string is stable:
         // clients can match on the suffix `"not implemented in this build"` to
         // distinguish a v1-aware bridge from one that returns the EBP/1 generic
@@ -458,7 +458,7 @@ class BridgeProtocolHandler {
 
     // MARK: - LINK_DELIVER handler (RFC §4.9)
     //
-    // BrightLink v1's Shell → Agent credential delivery path. The client
+    // BrightLink's Shell → Agent credential delivery path. The client
     // sends a JSON request:
     //
     //   {
